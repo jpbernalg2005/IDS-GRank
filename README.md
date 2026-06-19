@@ -1,36 +1,101 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# IDS-GRank 🏋️
 
-## Getting Started
+Aplicación móvil de ranking de gimnasio. Registra tus marcas personales (PRs) en diferentes ejercicios, gana rangos según el peso levantado (Plástico → Challenger), compite con amigos en grupos privados y sigue tu progreso.
 
-First, run the development server:
+## Stack Tecnológico
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+| Capa | Tecnología |
+|---|---|
+| Framework | Next.js 16 (App Router, Turbopack) |
+| Lenguaje | TypeScript |
+| Estilos | Tailwind CSS v4 |
+| Autenticación | NextAuth v5 (Credentials provider, JWT) |
+| ORM | Drizzle ORM |
+| Base de datos | PostgreSQL 16 |
+| Contenedores | Docker + Docker Compose |
+| Fuentes | Inter (body), Bebas Neue (headings) |
+
+## Requisitos
+
+- Docker Desktop (Windows) o Docker Engine + Compose (Linux/Mac)
+- Git
+
+## Cómo levantar
+
+```powershell
+# 1. Clonar el repo
+git clone <repo-url>
+cd IDS-GRank
+
+# 2. Iniciar Docker Desktop (si estás en Windows)
+
+# 3. Construir y levantar todo
+docker compose up -d
+
+# 4. Ejecutar migraciones (solo la primera vez)
+docker compose exec -T app npx drizzle-kit push
+
+# 5. Sembrar datos de prueba
+docker compose exec -T app npx tsx src/db/seed.ts
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+La app queda disponible en **http://localhost:3000**.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Servicios
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Servicio | URL | Credenciales |
+|---|---|---|
+| App | http://localhost:3000 | demo@grank.com / demo1234 |
+| pgAdmin | http://localhost:5050 | admin@grank.com / admin123 |
 
-## Learn More
+## Apagar
 
-To learn more about Next.js, take a look at the following resources:
+```powershell
+# Apagar todo (la DB conserva los datos)
+docker compose down
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# Apagar y borrar datos
+docker compose down -v
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Funcionalidades
 
-## Deploy on Vercel
+- **Registro e inicio de sesión** con email y contraseña
+- **Perfil de usuario** editable (nombre, sexo, peso, altura, nivel, biografía)
+- **Ejercicios** organizados por categorías (Pecho, Espalda, Piernas, Hombros, Brazos, Core)
+- **Registro de marcas (PR)** con peso, repeticiones, fecha, notas y video
+- **Sistema de rangos** por categoría:
+  | Rango | Descripción |
+  |---|---|
+  | Plástico | Peso inicial |
+  | Bronce | Superaste el mínimo |
+  | Oro | Levantamiento intermedio |
+  | Platino | Avanzado |
+  | Esmeralda | Élite |
+  | Diamante | Máximo |
+  | Challenger | Leyenda |
+- **Rankings globales** por categoría con badges de rango
+- **Planes de entrenamiento** personalizados con ejercicios, series y repeticiones
+- **Amigos** búsqueda y agregado por username
+- **Grupos de competencia** privados con código de invitación y leaderboard interno
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Estructura del proyecto
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+src/
+├── app/
+│   ├── (auth)/           # Login, Register
+│   ├── (dashboard)/      # Home, Exercises, Rankings, Plans, Friends, Groups, Profile
+│   └── api/              # API routes (auth, exercises, prs, plans, friends, groups, profile, upload)
+├── components/           # Navbar, PRCard, CopyButton
+├── db/
+│   ├── schema/           # Drizzle ORM schemas (7 tablas)
+│   ├── index.ts          # Conexión a DB
+│   └── seed.ts           # Datos de prueba
+├── lib/
+│   ├── auth.ts           # Configuración NextAuth
+│   ├── tiers.ts          # Lógica de rangos
+│   └── utils.ts          # Utilidades
+├── proxy.ts              # Protección de rutas (Next.js 16 proxy convention)
+└── types/                # Type declarations
+```
