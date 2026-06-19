@@ -1,21 +1,14 @@
 import { Dumbbell } from "lucide-react";
+import { TIER_COLORS, TIER_LABELS, type Tier } from "@/lib/tiers";
 
 interface PRCardProps {
   exercise: string;
   category: string;
   weight: string;
   reps: number;
-  tier?: string;
+  tier?: Tier;
   date?: string;
 }
-
-const tierColors: Record<string, string> = {
-  BRONZE: "bg-amber-900 text-amber-100",
-  SILVER: "bg-slate-400 text-slate-900",
-  GOLD: "bg-yellow-500 text-yellow-950",
-  PLATINUM: "bg-cyan-600 text-cyan-100",
-  DIAMOND: "bg-primary text-primary-foreground",
-};
 
 export function PRCard({ exercise, category, weight, reps, tier, date }: PRCardProps) {
   return (
@@ -31,8 +24,8 @@ export function PRCard({ exercise, category, weight, reps, tier, date }: PRCardP
           </div>
         </div>
         {tier && (
-          <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${tierColors[tier] || "bg-muted text-muted-foreground"}`}>
-            {tier}
+          <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${TIER_COLORS[tier]}`}>
+            {TIER_LABELS[tier]}
           </span>
         )}
       </div>

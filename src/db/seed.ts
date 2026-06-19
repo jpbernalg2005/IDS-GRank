@@ -9,12 +9,12 @@ async function seed() {
   await db.delete(exerciseCategories);
 
   const categoryData = [
-    { name: "Chest", description: "Ejercicios de pecho", tierBronze: "40", tierSilver: "60", tierGold: "80", tierPlatinum: "100", tierDiamond: "120" },
-    { name: "Back", description: "Ejercicios de espalda", tierBronze: "50", tierSilver: "75", tierGold: "100", tierPlatinum: "130", tierDiamond: "160" },
-    { name: "Legs", description: "Ejercicios de piernas", tierBronze: "60", tierSilver: "90", tierGold: "120", tierPlatinum: "160", tierDiamond: "200" },
-    { name: "Shoulders", description: "Ejercicios de hombros", tierBronze: "25", tierSilver: "40", tierGold: "55", tierPlatinum: "70", tierDiamond: "85" },
-    { name: "Arms", description: "Ejercicios de brazos", tierBronze: "20", tierSilver: "30", tierGold: "45", tierPlatinum: "60", tierDiamond: "75" },
-    { name: "Core", description: "Ejercicios de abdomen", tierBronze: "10", tierSilver: "20", tierGold: "35", tierPlatinum: "50", tierDiamond: "65" },
+    { name: "Chest", description: "Ejercicios de pecho", tierPlastic: "0", tierBronze: "40", tierGold: "60", tierPlatinum: "80", tierEmerald: "100", tierDiamond: "120", tierChallenger: "140" },
+    { name: "Back", description: "Ejercicios de espalda", tierPlastic: "0", tierBronze: "50", tierGold: "75", tierPlatinum: "100", tierEmerald: "130", tierDiamond: "160", tierChallenger: "190" },
+    { name: "Legs", description: "Ejercicios de piernas", tierPlastic: "0", tierBronze: "60", tierGold: "90", tierPlatinum: "120", tierEmerald: "160", tierDiamond: "200", tierChallenger: "240" },
+    { name: "Shoulders", description: "Ejercicios de hombros", tierPlastic: "0", tierBronze: "25", tierGold: "40", tierPlatinum: "55", tierEmerald: "70", tierDiamond: "85", tierChallenger: "100" },
+    { name: "Arms", description: "Ejercicios de brazos", tierPlastic: "0", tierBronze: "20", tierGold: "30", tierPlatinum: "45", tierEmerald: "60", tierDiamond: "75", tierChallenger: "90" },
+    { name: "Core", description: "Ejercicios de abdomen", tierPlastic: "0", tierBronze: "10", tierGold: "20", tierPlatinum: "35", tierEmerald: "50", tierDiamond: "65", tierChallenger: "80" },
   ];
 
   for (const cat of categoryData) {

@@ -3,13 +3,17 @@ import { db } from "@/db";
 import { users, personalRecords, exercises, exerciseCategories } from "@/db/schema";
 import { eq, desc, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
+import { getTier, TIER_COLORS, TIER_LABELS, type Tier } from "@/lib/tiers";
 
-async function getTopByCategory(categoryId: number) {
-  const results = await db
+async function getCategoryRanking(categoryId: number) {
+  const cat = await db.query.exerciseCategories.findFirst({ where: eq(exerciseCategories.id, categoryId) });
+  if (!cat) return { category: null, entries: [] };
+
+  const rows = await db
     .select({
       userId: personalRecords.userId,
       username: users.username,
-      maxWeight: sql<string>`MAX(${personalRecords.weightKg})`,
+      weightKg: sql<string>`MAX(${personalRecords.weightKg})`,
       exerciseName: exercises.name,
     })
     .from(personalRecords)
@@ -20,7 +24,12 @@ async function getTopByCategory(categoryId: number) {
     .orderBy(desc(sql`MAX(${personalRecords.weightKg})`))
     .limit(5);
 
-  return results;
+  const entries = rows.map((row) => {
+    const tier = getTier(Number(row.weightKg), cat);
+    return { ...row, tier };
+  });
+
+  return { category: cat, entries };
 }
 
 export default async function RankingsPage() {
@@ -28,12 +37,7 @@ export default async function RankingsPage() {
   if (!session?.user?.id) redirect("/login");
 
   const categories = await db.query.exerciseCategories.findMany();
-  const categoryData = await Promise.all(
-    categories.map(async (cat) => ({
-      category: cat,
-      top: await getTopByCategory(cat.id),
-    }))
-  );
+  const categoryData = await Promise.all(categories.map((cat) => getCategoryRanking(cat.id)));
 
   return (
     <div className="space-y-6">
@@ -55,11 +59,11 @@ export default async function RankingsPage() {
       </div>
 
       <div className="space-y-6">
-        {categoryData.map(({ category: cat, top }) => (
-          <div key={cat.id} className="space-y-3">
-            <h2 className="font-heading text-2xl tracking-wide text-primary">{cat.name}</h2>
+        {categoryData.map(({ category: cat, entries }) => (
+          <div key={cat?.id} className="space-y-3">
+            <h2 className="font-heading text-2xl tracking-wide text-primary">{cat?.name}</h2>
             <div className="space-y-1.5">
-              {top.map((row, idx) => (
+              {entries.map((row, idx) => (
                 <div
                   key={`${row.userId}-${row.exerciseName}`}
                   className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 shadow-sm"
@@ -78,12 +82,17 @@ export default async function RankingsPage() {
                       <p className="text-[10px] text-muted-foreground">{row.exerciseName}</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold">{row.maxWeight} kg</p>
+                  <div className="flex items-center gap-2">
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${TIER_COLORS[row.tier]}`}>
+                      {TIER_LABELS[row.tier]}
+                    </span>
+                    <div className="text-right">
+                      <p className="text-sm font-bold">{row.weightKg} kg</p>
+                    </div>
                   </div>
                 </div>
               ))}
-              {top.length === 0 && (
+              {entries.length === 0 && (
                 <p className="py-4 text-center text-sm text-muted-foreground">Sin registros aún</p>
               )}
             </div>

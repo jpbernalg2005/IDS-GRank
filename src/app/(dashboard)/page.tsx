@@ -6,6 +6,33 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Dumbbell, Trophy, TrendingUp, Users } from "lucide-react";
 import { PRCard } from "@/components/pr-card";
+import { getTier, TIER_POINTS, TIER_LABELS, TIER_COLORS, type Tier } from "@/lib/tiers";
+
+async function getUserRanking(userId: number) {
+  const categories = await db.query.exerciseCategories.findMany();
+  const prs = await db
+    .select({
+      weightKg: personalRecords.weightKg,
+      categoryId: exercises.categoryId,
+    })
+    .from(personalRecords)
+    .innerJoin(exercises, eq(personalRecords.exerciseId, exercises.id))
+    .where(eq(personalRecords.userId, userId));
+
+  if (prs.length === 0) return { points: 0, bestTier: undefined as Tier | undefined };
+
+  let bestTier: Tier = "PLASTIC";
+  let topPoints = 0;
+  for (const pr of prs) {
+    const cat = categories.find((c) => c.id === pr.categoryId);
+    if (!cat) continue;
+    const tier = getTier(Number(pr.weightKg), cat);
+    const p = TIER_POINTS[tier];
+    if (p > topPoints) { topPoints = p; bestTier = tier; }
+  }
+
+  return { points: topPoints, bestTier };
+}
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -15,13 +42,17 @@ export default async function DashboardPage() {
   const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
   if (!user) redirect("/login");
 
+  const allCategories = await db.query.exerciseCategories.findMany();
+
   const recentPRs = await db
     .select({
       id: personalRecords.id,
       weightKg: personalRecords.weightKg,
       reps: personalRecords.reps,
       date: personalRecords.date,
+      exerciseId: personalRecords.exerciseId,
       exerciseName: exercises.name,
+      categoryId: exercises.categoryId,
       categoryName: exerciseCategories.name,
     })
     .from(personalRecords)
@@ -31,15 +62,23 @@ export default async function DashboardPage() {
     .orderBy(desc(personalRecords.date))
     .limit(5);
 
-  const totalPRs = await db
+  const recentPRsWithTier = recentPRs.map((pr) => {
+    const cat = allCategories.find((c) => c.id === pr.categoryId);
+    const tier = cat ? getTier(Number(pr.weightKg), cat) : undefined;
+    return { ...pr, tier };
+  });
+
+  const ranking = await getUserRanking(userId);
+
+  const totalPRCount = await db
     .select({ count: sql<number>`count(*)` })
     .from(personalRecords)
     .where(eq(personalRecords.userId, userId));
 
   const stats = [
-    { label: "PRs Totales", value: totalPRs[0]?.count || 0, icon: Dumbbell, color: "text-primary" },
-    { label: "Ranking Global", value: "#--", icon: Trophy, color: "text-yellow-500" },
-    { label: "Racha", value: "0 días", icon: TrendingUp, color: "text-green-500" },
+    { label: "PRs Totales", value: totalPRCount[0]?.count || 0, icon: Dumbbell, color: "text-primary" },
+    { label: "Mejor Rango", value: ranking.bestTier ? TIER_LABELS[ranking.bestTier] : "—", icon: Trophy, color: "text-yellow-500", tier: ranking.bestTier },
+    { label: "Puntos", value: ranking.points, icon: TrendingUp, color: "text-green-500" },
     { label: "Amigos", value: "0", icon: Users, color: "text-blue-500" },
   ];
 
@@ -63,7 +102,13 @@ export default async function DashboardPage() {
                 <Icon className={`h-4 w-4 ${stat.color}`} />
                 <span className="text-xs text-muted-foreground">{stat.label}</span>
               </div>
-              <p className={`mt-1 text-2xl font-bold ${stat.color}`}>{stat.value}</p>
+              {"tier" in stat && stat.tier ? (
+                <p className={`mt-1 text-2xl font-bold uppercase ${TIER_COLORS[stat.tier as Tier]}`}>
+                  {stat.value}
+                </p>
+              ) : (
+                <p className={`mt-1 text-2xl font-bold ${stat.color}`}>{stat.value}</p>
+              )}
             </div>
           );
         })}
@@ -78,13 +123,14 @@ export default async function DashboardPage() {
         </div>
         {recentPRs.length > 0 ? (
           <div className="space-y-2">
-            {recentPRs.map((pr) => (
+            {recentPRsWithTier.map((pr) => (
               <PRCard
                 key={pr.id}
                 exercise={pr.exerciseName}
                 category={pr.categoryName}
                 weight={String(pr.weightKg)}
                 reps={pr.reps}
+                tier={pr.tier}
                 date={pr.date?.toISOString()}
               />
             ))}

@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { PRCard } from "@/components/pr-card";
 import { ArrowLeft } from "lucide-react";
+import { getTier, TIER_COLORS, TIER_LABELS } from "@/lib/tiers";
 
 export default async function CategoryExercisesPage({
   params,
@@ -65,12 +66,18 @@ export default async function CategoryExercisesPage({
                   <h3 className="font-heading text-lg tracking-wide">{ex.name}</h3>
                   <p className="text-xs text-muted-foreground">{ex.description || "Sin descripción"}</p>
                 </div>
-                {pr ? (
-                  <div className="text-right">
-                    <p className="text-sm font-bold">{pr.weightKg} kg</p>
-                    <p className="text-[10px] text-muted-foreground">× {pr.reps} reps</p>
-                  </div>
-                ) : (
+                {pr ? (() => {
+                  const tier = getTier(Number(pr.weightKg), category);
+                  return (
+                    <div className="text-right">
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${TIER_COLORS[tier]}`}>
+                        {TIER_LABELS[tier]}
+                      </span>
+                      <p className="mt-1 text-sm font-bold">{pr.weightKg} kg</p>
+                      <p className="text-[10px] text-muted-foreground">× {pr.reps} reps</p>
+                    </div>
+                  );
+                })() : (
                   <span className="text-xs text-muted-foreground">Sin PR</span>
                 )}
               </div>
