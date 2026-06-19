@@ -1,43 +1,88 @@
-import { auth } from "@/lib/auth";
-import { db } from "@/db";
-import { users, personalRecords, exercises, exerciseCategories } from "@/db/schema";
-import { eq, desc, sql } from "drizzle-orm";
-import { redirect } from "next/navigation";
+"use client";
+
+import { useState, useEffect } from "react";
 import { getTier, TIER_COLORS, TIER_LABELS, type Tier } from "@/lib/tiers";
 
-async function getCategoryRanking(categoryId: number) {
-  const cat = await db.query.exerciseCategories.findFirst({ where: eq(exerciseCategories.id, categoryId) });
-  if (!cat) return { category: null, entries: [] };
-
-  const rows = await db
-    .select({
-      userId: personalRecords.userId,
-      username: users.username,
-      weightKg: sql<string>`MAX(${personalRecords.weightKg})`,
-      exerciseName: exercises.name,
-    })
-    .from(personalRecords)
-    .innerJoin(users, eq(personalRecords.userId, users.id))
-    .innerJoin(exercises, eq(personalRecords.exerciseId, exercises.id))
-    .where(eq(exercises.categoryId, categoryId))
-    .groupBy(personalRecords.userId, users.username, exercises.name)
-    .orderBy(desc(sql`MAX(${personalRecords.weightKg})`))
-    .limit(5);
-
-  const entries = rows.map((row) => {
-    const tier = getTier(Number(row.weightKg), cat);
-    return { ...row, tier };
-  });
-
-  return { category: cat, entries };
+interface Category {
+  id: number;
+  name: string;
+  tierPlastic: string | null;
+  tierBronze: string | null;
+  tierGold: string | null;
+  tierPlatinum: string | null;
+  tierEmerald: string | null;
+  tierDiamond: string | null;
+  tierChallenger: string | null;
 }
 
-export default async function RankingsPage() {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
+interface RankingEntry {
+  userId: number;
+  username: string;
+  weightKg: string;
+  exerciseName: string;
+  sex?: string;
+  userWeightKg?: string;
+  tier: Tier;
+}
 
-  const categories = await db.query.exerciseCategories.findMany();
-  const categoryData = await Promise.all(categories.map((cat) => getCategoryRanking(cat.id)));
+type FilterMode = "global" | "weight" | "sex";
+
+export default function RankingsPage() {
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoryData, setCategoryData] = useState<{ category: Category; entries: RankingEntry[] }[]>([]);
+  const [filter, setFilter] = useState<FilterMode>("global");
+  const [sexFilter, setSexFilter] = useState<"ALL" | "MALE" | "FEMALE">("ALL");
+  const [sessionUserId, setSessionUserId] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetch("/api/exercises?categories=true")
+      .then((r) => r.json())
+      .then(async (cats: Category[]) => {
+        const catData = await Promise.all(
+          cats.map(async (cat) => {
+            const prRes = await fetch(`/api/personal-records?categoryId=${cat.id}`);
+            const prs: any[] = await prRes.json();
+            const entries: RankingEntry[] = prs.map((pr) => ({
+              ...pr,
+              tier: getTier(Number(pr.weightKg), cat),
+            }));
+            return { category: cat, entries };
+          })
+        );
+        setCategories(cats);
+        setCategoryData(catData);
+      });
+
+    fetch("/api/auth/session")
+      .then((r) => r.json())
+      .then((data) => setSessionUserId(Number(data?.user?.id)));
+  }, []);
+
+  const getFilteredData = () => {
+    return categoryData.map(({ category, entries }) => {
+      let filtered = [...entries];
+
+      if (filter === "weight") {
+        filtered = filtered.filter((e) => e.userWeightKg && Number(e.userWeightKg) > 0);
+        filtered.sort((a, b) => {
+          const ratioA = Number(a.weightKg) / Number(a.userWeightKg || 1);
+          const ratioB = Number(b.weightKg) / Number(b.userWeightKg || 1);
+          return ratioB - ratioA;
+        });
+      }
+
+      if (filter === "sex" && sexFilter !== "ALL") {
+        filtered = filtered.filter((e) => e.sex === sexFilter);
+      }
+
+      return {
+        category,
+        entries: filtered.slice(0, 5),
+      };
+    });
+  };
+
+  const filteredData = getFilteredData();
 
   return (
     <div className="space-y-6">
@@ -47,21 +92,39 @@ export default async function RankingsPage() {
       </div>
 
       <div className="flex gap-2 border-b border-border pb-2">
-        <button className="rounded-lg bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground">
-          Global
-        </button>
-        <button className="rounded-lg bg-secondary px-4 py-1.5 text-xs font-medium text-secondary-foreground hover:bg-secondary/80 transition-colors">
-          Por Peso
-        </button>
-        <button className="rounded-lg bg-secondary px-4 py-1.5 text-xs font-medium text-secondary-foreground hover:bg-secondary/80 transition-colors">
-          Por Sexo
-        </button>
+        {(["global", "weight", "sex"] as FilterMode[]).map((mode) => (
+          <button
+            key={mode}
+            onClick={() => setFilter(mode)}
+            className={`rounded-lg px-4 py-1.5 text-xs font-semibold transition-colors ${
+              filter === mode ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+            }`}
+          >
+            {mode === "global" ? "Global" : mode === "weight" ? "Por Peso" : "Por Sexo"}
+          </button>
+        ))}
       </div>
 
+      {filter === "sex" && (
+        <div className="flex gap-2">
+          {(["ALL", "MALE", "FEMALE"] as const).map((s) => (
+            <button
+              key={s}
+              onClick={() => setSexFilter(s)}
+              className={`rounded-lg px-3 py-1 text-xs font-medium transition-colors ${
+                sexFilter === s ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+              }`}
+            >
+              {s === "ALL" ? "Todos" : s === "MALE" ? "Masculino" : "Femenino"}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="space-y-6">
-        {categoryData.map(({ category: cat, entries }) => (
-          <div key={cat?.id} className="space-y-3">
-            <h2 className="font-heading text-2xl tracking-wide text-primary">{cat?.name}</h2>
+        {filteredData.map(({ category: cat, entries }) => (
+          <div key={cat.id} className="space-y-3">
+            <h2 className="font-heading text-2xl tracking-wide text-primary">{cat.name}</h2>
             <div className="space-y-1.5">
               {entries.map((row, idx) => (
                 <div
@@ -88,6 +151,11 @@ export default async function RankingsPage() {
                     </span>
                     <div className="text-right">
                       <p className="text-sm font-bold">{row.weightKg} kg</p>
+                      {filter === "weight" && row.userWeightKg && (
+                        <p className="text-[10px] text-muted-foreground">
+                          {(Number(row.weightKg) / Number(row.userWeightKg)).toFixed(2)}x peso corporal
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>

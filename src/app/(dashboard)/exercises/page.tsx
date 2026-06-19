@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { exerciseCategories } from "@/db/schema";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Dumbbell, Plus } from "lucide-react";
+import { Dumbbell, Plus, ClipboardList } from "lucide-react";
 
 const categoryIcons: Record<string, string> = {
   Chest: "🏋️",
@@ -35,6 +35,14 @@ export default async function ExercisesPage() {
           Nuevo PR
         </Link>
       </div>
+
+      <Link
+        href="/plans"
+        className="flex items-center justify-center gap-2 rounded-xl border border-border bg-card p-4 shadow-sm transition-all hover:shadow-md hover:border-primary/30"
+      >
+        <ClipboardList className="h-5 w-5 text-primary" />
+        <span className="font-heading text-lg tracking-wide">Mis Planes</span>
+      </Link>
 
       <div className="grid grid-cols-2 gap-3">
         {categories.map((cat) => (

@@ -1,28 +1,53 @@
-import { auth } from "@/lib/auth";
-import { db } from "@/db";
-import { competitionGroups, groupMembers, users } from "@/db/schema";
-import { eq } from "drizzle-orm";
-import { redirect } from "next/navigation";
+"use client";
+
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Plus, Users, Shield, User } from "lucide-react";
+import { Plus, Users, Shield, User, LogIn } from "lucide-react";
 
-export default async function GroupsPage() {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
+interface GroupInfo {
+  id: number;
+  name: string;
+  description: string | null;
+  inviteCode: string | null;
+}
 
-  const userId = Number(session.user.id);
+interface Membership {
+  groupId: number;
+  role: string;
+  groupName: string;
+  groupDesc: string | null;
+  inviteCode: string | null;
+  group: GroupInfo;
+}
 
-  const myMemberships = await db
-    .select({
-      groupId: groupMembers.groupId,
-      role: groupMembers.role,
-      groupName: competitionGroups.name,
-      groupDesc: competitionGroups.description,
-      inviteCode: competitionGroups.inviteCode,
-    })
-    .from(groupMembers)
-    .innerJoin(competitionGroups, eq(groupMembers.groupId, competitionGroups.id))
-    .where(eq(groupMembers.userId, userId));
+export default function GroupsPage() {
+  const [memberships, setMemberships] = useState<Membership[]>([]);
+  const [inviteCode, setInviteCode] = useState("");
+  const [joinError, setJoinError] = useState("");
+
+  const loadGroups = async () => {
+    const res = await fetch("/api/groups");
+    const data = await res.json();
+    setMemberships(data || []);
+  };
+
+  useEffect(() => { loadGroups(); }, []);
+
+  const joinGroup = async () => {
+    setJoinError("");
+    const res = await fetch("/api/groups", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ inviteCode: inviteCode.toUpperCase() }),
+    });
+    if (res.ok) {
+      setInviteCode("");
+      loadGroups();
+    } else {
+      const data = await res.json();
+      setJoinError(data.error || "Error al unirse");
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -43,7 +68,7 @@ export default async function GroupsPage() {
       <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="rounded-lg bg-primary/10 p-2">
-            <Users className="h-5 w-5 text-primary" />
+            <LogIn className="h-5 w-5 text-primary" />
           </div>
           <div>
             <h3 className="font-heading text-lg tracking-wide">Unirse a un grupo</h3>
@@ -52,18 +77,25 @@ export default async function GroupsPage() {
         </div>
         <div className="mt-3 flex gap-2">
           <input
+            value={inviteCode}
+            onChange={(e) => setInviteCode(e.target.value)}
             placeholder="Código de invitación"
-            className="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring uppercase"
+            onKeyDown={(e) => e.key === "Enter" && joinGroup()}
           />
-          <button className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors">
+          <button
+            onClick={joinGroup}
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+          >
             Unirse
           </button>
         </div>
+        {joinError && <p className="mt-2 text-xs text-destructive">{joinError}</p>}
       </div>
 
       <div className="space-y-2">
-        {myMemberships.length > 0 ? (
-          myMemberships.map((m) => (
+        {memberships.length > 0 ? (
+          memberships.map((m) => (
             <Link
               key={m.groupId}
               href={`/groups/${m.groupId}`}
@@ -71,8 +103,8 @@ export default async function GroupsPage() {
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-heading text-xl tracking-wide">{m.groupName}</h3>
-                  <p className="text-xs text-muted-foreground">{m.groupDesc || "Sin descripción"}</p>
+                  <h3 className="font-heading text-xl tracking-wide">{m.group?.name || m.groupName}</h3>
+                  <p className="text-xs text-muted-foreground">{m.group?.description || m.groupDesc || "Sin descripción"}</p>
                 </div>
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
                   {m.role === "ADMIN" ? <Shield className="h-3.5 w-3.5 text-primary" /> : <User className="h-3.5 w-3.5" />}

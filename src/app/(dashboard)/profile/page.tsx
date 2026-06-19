@@ -3,7 +3,9 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { ProfileForm } from "./profile-form";
+import { Users, ClipboardList } from "lucide-react";
 
 export default async function ProfilePage() {
   const session = await auth();
@@ -33,6 +35,26 @@ export default async function ProfilePage() {
       </div>
 
       <ProfileForm user={user} />
+
+      <div className="space-y-3 rounded-xl border border-border bg-card p-6 shadow-sm">
+        <h3 className="font-heading text-xl tracking-wide">Acceso rápido</h3>
+        <div className="grid grid-cols-2 gap-3">
+          <Link
+            href="/groups"
+            className="flex flex-col items-center gap-2 rounded-lg bg-secondary p-4 text-secondary-foreground hover:bg-secondary/80 transition-colors"
+          >
+            <Users className="h-6 w-6 text-primary" />
+            <span className="text-xs font-medium">Grupos</span>
+          </Link>
+          <Link
+            href="/plans"
+            className="flex flex-col items-center gap-2 rounded-lg bg-secondary p-4 text-secondary-foreground hover:bg-secondary/80 transition-colors"
+          >
+            <ClipboardList className="h-6 w-6 text-primary" />
+            <span className="text-xs font-medium">Planes</span>
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }

@@ -2,15 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Dumbbell, Trophy, UserRound, Home, Users } from "lucide-react";
+import { Dumbbell, Trophy, UserRound, Home, Users, UserPlus } from "lucide-react";
 
 const navItems = [
   { href: "/", label: "Inicio", icon: Home },
   { href: "/rankings", label: "Rankings", icon: Trophy },
   { href: "/exercises", label: "Ejercicios", icon: Dumbbell },
+  { href: "/friends", label: "Amigos", icon: UserPlus },
   { href: "/groups", label: "Grupos", icon: Users },
-  { href: "/plans", label: "Planes", icon: UserRound },
-  { href: "/profile", label: "Perfil", icon: Users },
+  { href: "/profile", label: "Perfil", icon: UserRound },
 ];
 
 export function Navbar() {
