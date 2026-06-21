@@ -1,6 +1,7 @@
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
+import { sql } from "drizzle-orm";
 import postgres from "postgres";
 import * as schema from "@/db/schema";
 
@@ -20,6 +21,7 @@ export interface TestDbContext {
  *   let ctx: TestDbContext;
  *   beforeAll(async () => { ctx = await createTestDb(); });
  *   afterAll(async () => { await destroyTestDb(ctx); });
+ *   beforeEach(async () => { await resetDb(ctx.db); }); // cada test siembra lo suyo
  */
 export async function createTestDb(): Promise<TestDbContext> {
   const container = await new PostgreSqlContainer("postgres:16-alpine").start();
@@ -38,44 +40,22 @@ export async function destroyTestDb(ctx: TestDbContext): Promise<void> {
 }
 
 /**
- * Siembra datos mínimos y deterministas para los tests de integración:
- * 1 categoría ("Chest") con umbrales de tier, 2 ejercicios y 1 usuario.
- * Devuelve los ids generados para que cada test arme sus asserts.
+ * Vacía todas las tablas y reinicia los contadores de id. Se usa en beforeEach
+ * para que cada test arranque con una BD limpia y siembre exactamente los datos
+ * que necesita, sin arrastrar estado ni chocar con constraints únicos de otro test.
  */
-export async function seedTestData(db: TestDb) {
-  const [category] = await db
-    .insert(schema.exerciseCategories)
-    .values({
-      name: "Chest",
-      description: "Ejercicios de pecho",
-      tierPlastic: "0",
-      tierBronze: "40",
-      tierGold: "60",
-      tierPlatinum: "80",
-      tierEmerald: "100",
-      tierDiamond: "120",
-      tierChallenger: "140",
-    })
-    .returning();
-
-  const insertedExercises = await db
-    .insert(schema.exercises)
-    .values([
-      { categoryId: category.id, name: "Bench Press", description: "Press de banca" },
-      { categoryId: category.id, name: "Incline Bench Press", description: "Press inclinado" },
-    ])
-    .returning();
-
-  const [user] = await db
-    .insert(schema.users)
-    .values({
-      username: "tester",
-      email: "tester@grank.com",
-      passwordHash: "hash-de-prueba",
-      sex: "MALE",
-      weightKg: "80.00",
-    })
-    .returning();
-
-  return { category, exercises: insertedExercises, user };
+export async function resetDb(db: TestDb): Promise<void> {
+  await db.execute(
+    sql.raw(`TRUNCATE TABLE
+      personal_records,
+      workout_plan_exercises,
+      workout_plans,
+      friendships,
+      group_members,
+      competition_groups,
+      exercises,
+      exercise_categories,
+      users
+      RESTART IDENTITY CASCADE`),
+  );
 }
