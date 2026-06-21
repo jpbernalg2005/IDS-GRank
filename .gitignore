@@ -37,7 +37,8 @@ yarn-error.log*
 .vercel
 
 # drizzle
-src/db/migrations/
+# Nota: src/db/migrations/ SÍ se versiona — los tests de integración construyen
+# la BD de test a partir de estos archivos (ver README › Tests).
 drizzle-zig/
 
 # uploads

@@ -97,5 +97,40 @@ src/
 │   ├── tiers.ts          # Lógica de rangos
 │   └── utils.ts          # Utilidades
 ├── proxy.ts              # Protección de rutas (Next.js 16 proxy convention)
+├── test/                 # Infraestructura de testing (BD efímera)
+│   ├── db.ts             # Helper: contenedor Postgres + schema + seed
+│   └── db.test.ts        # Smoke test de la infraestructura
 └── types/                # Type declarations
+```
+
+## Tests
+
+El proyecto usa **Vitest** como runner. Hay dos tipos de prueba:
+
+- **Unitarias**: prueban lógica aislada (ej. `getTier`), sin base de datos.
+- **Integración**: prueban el código contra un **Postgres 16 real y efímero** que se
+  levanta automáticamente en Docker mediante [Testcontainers](https://testcontainers.com/).
+  No usa la base de datos de desarrollo: por cada corrida se crea un contenedor nuevo,
+  se le aplica el schema (desde `src/db/migrations/`) y se siembran datos de prueba, y al
+  terminar se destruye.
+
+### Requisitos
+- Docker
+- Dependencias instaladas: `npm install`
+
+### Correr los tests
+
+```bash
+npm test          # corre todos los tests una vez
+npm run test:watch # modo watch (re-corre al guardar)
+```
+
+
+### Migraciones (necesarias para los tests de integración)
+
+Los tests aplican el schema desde archivos de migración SQL en `src/db/migrations/`.
+Si cambias algún schema en `src/db/schema/`, regenera las migraciones antes de testear:
+
+```bash
+npm run db:generate
 ```
