@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Swords, Check, X, Upload, Trophy, Ban } from "lucide-react";
+import { Swords, Check, X, Upload, Trophy, Ban, Video, Square, Camera } from "lucide-react";
 
 interface ParticipantChallenge {
   participantId: number;
@@ -45,6 +45,14 @@ export function ChallengesInbox({ userId }: { userId: number }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeUploadId, setActiveUploadId] = useState<number | null>(null);
 
+  // recording state
+  const [recordingId, setRecordingId] = useState<number | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const streamRef = useRef<MediaStream | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const previewRef = useRef<HTMLVideoElement>(null);
+  const cancelledRef = useRef(false);
+
   const loadChallenges = async () => {
     const res = await fetch("/api/challenges");
     if (res.ok) {
@@ -56,6 +64,13 @@ export function ChallengesInbox({ userId }: { userId: number }) {
   };
 
   useEffect(() => { loadChallenges(); }, []);
+
+  // attach stream to preview element once recording panel mounts
+  useEffect(() => {
+    if (recordingId && previewRef.current && streamRef.current) {
+      previewRef.current.srcObject = streamRef.current;
+    }
+  }, [recordingId]);
 
   const doAction = async (body: Record<string, unknown>) => {
     await fetch("/api/challenges", {
@@ -91,6 +106,57 @@ export function ChallengesInbox({ userId }: { userId: number }) {
     e.target.value = "";
   };
 
+  const openCamera = async (participantId: number) => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      streamRef.current = stream;
+      cancelledRef.current = false;
+      setRecordingId(participantId);
+    } catch {
+      alert("No se pudo acceder a la cámara. Verifica los permisos.");
+    }
+  };
+
+  const startRecording = () => {
+    if (!streamRef.current || !recordingId) return;
+    const chunks: Blob[] = [];
+    const participantId = recordingId;
+    const recorder = new MediaRecorder(streamRef.current);
+    recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+    recorder.onstop = async () => {
+      if (cancelledRef.current) return;
+      const mimeType = chunks[0]?.type || "video/webm";
+      const ext = mimeType.includes("mp4") ? "mp4" : "webm";
+      const blob = new Blob(chunks, { type: mimeType });
+      const file = new File([blob], `recording-${Date.now()}.${ext}`, { type: mimeType });
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+      setRecordingId(null);
+      setIsRecording(false);
+      await handleVideoUpload(participantId, file);
+    };
+    recorder.start();
+    recorderRef.current = recorder;
+    setIsRecording(true);
+  };
+
+  const stopRecording = () => {
+    recorderRef.current?.stop();
+    setIsRecording(false);
+  };
+
+  const cancelCamera = () => {
+    cancelledRef.current = true;
+    if (recorderRef.current && recorderRef.current.state !== "inactive") {
+      recorderRef.current.stop();
+    }
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    recorderRef.current = null;
+    setRecordingId(null);
+    setIsRecording(false);
+  };
+
   if (loading) return null;
 
   const hasContent = participantChallenges.length > 0 || creatorChallenges.length > 0;
@@ -106,6 +172,7 @@ export function ChallengesInbox({ userId }: { userId: number }) {
         ref={fileInputRef}
         type="file"
         accept="video/*"
+        capture="environment"
         className="hidden"
         onChange={onFileSelected}
       />
@@ -158,14 +225,69 @@ export function ChallengesInbox({ userId }: { userId: number }) {
               </button>
             </div>
           ) : c.participantStatus === "ACCEPTED" || c.participantStatus === "REJECTED" ? (
-            <button
-              onClick={() => triggerUpload(c.participantId)}
-              disabled={uploading === c.participantId}
-              className="w-full flex items-center justify-center gap-1 rounded-lg bg-primary/10 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
-            >
-              <Upload className="h-3.5 w-3.5" />
-              {uploading === c.participantId ? "Subiendo..." : c.participantStatus === "REJECTED" ? "Resubir evidencia" : "Subir evidencia"}
-            </button>
+            recordingId === c.participantId ? (
+              <div className="space-y-2">
+                <video
+                  ref={previewRef}
+                  autoPlay
+                  muted
+                  playsInline
+                  className="w-full rounded-lg bg-black aspect-video object-cover"
+                />
+                <div className="flex gap-2">
+                  {!isRecording ? (
+                    <>
+                      <button
+                        onClick={startRecording}
+                        className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+                      >
+                        <Video className="h-3.5 w-3.5" /> Iniciar grabación
+                      </button>
+                      <button
+                        onClick={cancelCamera}
+                        className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-muted px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted/80 transition-colors"
+                      >
+                        <X className="h-3.5 w-3.5" /> Cancelar
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={stopRecording}
+                      className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-destructive px-3 py-2 text-xs font-semibold text-white hover:bg-destructive/90 transition-colors"
+                    >
+                      <Square className="h-3.5 w-3.5 fill-current" />
+                      <span className="flex items-center gap-1">
+                        Detener
+                        <span className="inline-block h-2 w-2 rounded-full bg-white animate-pulse" />
+                      </span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => triggerUpload(c.participantId)}
+                  disabled={uploading === c.participantId}
+                  className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-primary/10 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  {uploading === c.participantId
+                    ? "Subiendo..."
+                    : c.participantStatus === "REJECTED"
+                    ? "Resubir archivo"
+                    : "Archivo"}
+                </button>
+                <button
+                  onClick={() => openCamera(c.participantId)}
+                  disabled={uploading === c.participantId}
+                  className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-primary/10 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
+                >
+                  <Camera className="h-3.5 w-3.5" />
+                  {c.participantStatus === "REJECTED" ? "Regrabar" : "Grabar"}
+                </button>
+              </div>
+            )
           ) : c.participantStatus === "SUBMITTED" ? (
             <div className="space-y-2">
               {c.videoUrl && (
