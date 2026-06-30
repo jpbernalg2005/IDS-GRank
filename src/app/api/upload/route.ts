@@ -12,13 +12,14 @@ export async function POST(req: Request) {
     if (!file) return Response.json({ error: "No se envió archivo" }, { status: 400 });
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const fileName = `${session.user.id}-${Date.now()}-${file.name}`;
+    const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_");
+    const fileName = `${session.user.id}-${Date.now()}-${safeName}`;
     const uploadDir = join(process.cwd(), "public", "uploads");
 
     await mkdir(uploadDir, { recursive: true });
     await writeFile(join(uploadDir, fileName), buffer);
 
-    return Response.json({ success: true, url: `/uploads/${fileName}`, fileName });
+    return Response.json({ success: true, url: `/api/uploads/${fileName}`, fileName });
   } catch (error) {
     console.error("Upload error:", error);
     return Response.json({ error: "Error al subir archivo" }, { status: 500 });

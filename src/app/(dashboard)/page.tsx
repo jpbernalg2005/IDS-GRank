@@ -4,8 +4,9 @@ import { users, personalRecords, exercises, exerciseCategories } from "@/db/sche
 import { eq, desc, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Dumbbell, Trophy, TrendingUp, Users } from "lucide-react";
+import { Dumbbell, Trophy, TrendingUp, Users, Coins } from "lucide-react";
 import { PRCard } from "@/components/pr-card";
+import { ChallengesInbox } from "@/components/challenges-inbox";
 import { getTier, TIER_POINTS, TIER_LABELS, TIER_COLORS, type Tier } from "@/lib/tiers";
 
 async function getUserRanking(userId: number) {
@@ -79,7 +80,7 @@ export default async function DashboardPage() {
     { label: "PRs Totales", value: totalPRCount[0]?.count || 0, icon: Dumbbell, color: "text-primary" },
     { label: "Mejor Rango", value: ranking.bestTier ? TIER_LABELS[ranking.bestTier] : "—", icon: Trophy, color: "text-yellow-500", tier: ranking.bestTier },
     { label: "Puntos", value: ranking.points, icon: TrendingUp, color: "text-green-500" },
-    { label: "Amigos", value: "0", icon: Users, color: "text-blue-500" },
+    { label: "Monedas", value: user.coins ?? 0, icon: Coins, color: "text-yellow-400" },
   ];
 
   return (
@@ -113,6 +114,8 @@ export default async function DashboardPage() {
           );
         })}
       </div>
+
+      <ChallengesInbox userId={userId} />
 
       <div className="space-y-3">
         <div className="flex items-center justify-between">

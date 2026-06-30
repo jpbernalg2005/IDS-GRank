@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Plus, Users, Shield, User, LogIn } from "lucide-react";
+import { Plus, Users, Shield, User, LogIn, Swords } from "lucide-react";
 
 interface GroupInfo {
   id: number;
@@ -106,9 +106,19 @@ export default function GroupsPage() {
                   <h3 className="font-heading text-xl tracking-wide">{m.group?.name || m.groupName}</h3>
                   <p className="text-xs text-muted-foreground">{m.group?.description || m.groupDesc || "Sin descripción"}</p>
                 </div>
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  {m.role === "ADMIN" ? <Shield className="h-3.5 w-3.5 text-primary" /> : <User className="h-3.5 w-3.5" />}
-                  {m.role}
+                <div className="flex items-center gap-2">
+                  <Link
+                    href={`/challenges/create?type=GROUP&groupId=${m.group?.id || m.groupId}&name=${encodeURIComponent(m.group?.name || m.groupName)}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex items-center gap-1 rounded-lg bg-primary/10 px-2 py-1 text-[10px] font-semibold text-primary hover:bg-primary/20 transition-colors"
+                  >
+                    <Swords className="h-3 w-3" />
+                    Crear reto
+                  </Link>
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    {m.role === "ADMIN" ? <Shield className="h-3.5 w-3.5 text-primary" /> : <User className="h-3.5 w-3.5" />}
+                    {m.role}
+                  </div>
                 </div>
               </div>
             </Link>

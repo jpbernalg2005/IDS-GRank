@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { UserPlus, Users, Check, X, Search } from "lucide-react";
+import Link from "next/link";
+import { UserPlus, Users, Check, X, Search, Swords } from "lucide-react";
 
 interface FriendUser {
   id: number;
@@ -184,6 +185,13 @@ export default function FriendsPage() {
                   <p className="text-xs text-muted-foreground">Amigo</p>
                 </div>
               </div>
+              <Link
+                href={`/challenges/create?type=FRIEND&userId=${f.requesterId === userId ? f.addresseeId : f.requesterId}&name=${encodeURIComponent(getFriendName(f))}`}
+                className="flex items-center gap-1 rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors"
+              >
+                <Swords className="h-3.5 w-3.5" />
+                Retar
+              </Link>
             </div>
           ))
         ) : (

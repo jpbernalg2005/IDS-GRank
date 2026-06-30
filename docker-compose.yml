@@ -31,6 +31,9 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    volumes:
+      - uploads:/app/public/uploads
 
 volumes:
   pgdata:
+  uploads:

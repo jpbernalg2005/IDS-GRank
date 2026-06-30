@@ -1,0 +1,465 @@
+"use client";
+
+import { useState, useEffect, useRef } from "react";
+import { Swords, Check, X, Upload, Trophy, Ban, Video, Square, Camera, AlertCircle } from "lucide-react";
+
+interface ParticipantChallenge {
+  participantId: number;
+  participantStatus: string;
+  videoUrl: string | null;
+  challengeId: number;
+  title: string;
+  type: string;
+  rewardCoins: number;
+  challengeStatus: string;
+  creatorUsername: string;
+  exerciseName: string | null;
+  groupName: string | null;
+}
+
+interface CreatorParticipant {
+  participantId: number;
+  userId: number;
+  username: string;
+  status: string;
+  videoUrl: string | null;
+  settled: boolean | null;
+}
+
+interface CreatorChallenge {
+  challengeId: number;
+  title: string;
+  type: string;
+  rewardCoins: number;
+  challengeStatus: string;
+  exerciseName: string | null;
+  groupName: string | null;
+  participants: CreatorParticipant[];
+}
+
+interface CameraError {
+  participantId: number;
+  message: string;
+  hint?: string;
+}
+
+const CAMERA_MESSAGES = {
+  denied_pre:    "Permisos de cámara bloqueados por el navegador.",
+  denied_hint:   "Ve a Configuración del navegador → Privacidad → Cámara y activa el acceso para este sitio.",
+  NotAllowedError:  "Permiso de cámara denegado.",
+  NotAllowedHint:   "Activa el acceso en la configuración del navegador e inténtalo de nuevo.",
+  NotFoundError:    "No se encontró ninguna cámara en este dispositivo.",
+  generic:          "No se pudo iniciar la cámara.",
+  genericHint:      "Verifica que no esté siendo usada por otra aplicación e inténtalo de nuevo.",
+} as const;
+
+export function ChallengesInbox({ userId }: { userId: number }) {
+  const [participantChallenges, setParticipantChallenges] = useState<ParticipantChallenge[]>([]);
+  const [creatorChallenges, setCreatorChallenges] = useState<CreatorChallenge[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState<number | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [activeUploadId, setActiveUploadId] = useState<number | null>(null);
+
+
+  // recording state
+  const [recordingId, setRecordingId] = useState<number | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [cameraError, setCameraError] = useState<CameraError | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const previewRef = useRef<HTMLVideoElement>(null);
+  const cancelledRef = useRef(false);
+
+  const loadChallenges = async () => {
+    const res = await fetch("/api/challenges");
+    if (res.ok) {
+      const data = await res.json();
+      setParticipantChallenges(data.asParticipant || []);
+      setCreatorChallenges(data.asCreator || []);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { loadChallenges(); }, []);
+
+  useEffect(() => {
+    if (recordingId && previewRef.current && streamRef.current) {
+      previewRef.current.srcObject = streamRef.current;
+    }
+  }, [recordingId]);
+
+  const doAction = async (body: Record<string, unknown>) => {
+    await fetch("/api/challenges", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    loadChallenges();
+  };
+
+  const handleVideoUpload = async (participantId: number, file: File) => {
+    setUploading(participantId);
+    const formData = new FormData();
+    formData.append("video", file);
+    const uploadRes = await fetch("/api/upload", { method: "POST", body: formData });
+    const uploadData = await uploadRes.json();
+    if (uploadData.url) {
+      await doAction({ participantId, action: "submit", videoUrl: uploadData.url });
+    }
+    setUploading(null);
+  };
+
+  const triggerUpload = (participantId: number) => {
+    setActiveUploadId(participantId);
+    fileInputRef.current?.click();
+  };
+
+  const onFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && activeUploadId) {
+      handleVideoUpload(activeUploadId, file);
+    }
+    e.target.value = "";
+  };
+
+  const openCamera = async (participantId: number) => {
+    setCameraError(null);
+
+    // Pre-check permission state without triggering the browser prompt.
+    // Guard: navigator.permissions is not available in all browsers.
+    if (navigator.permissions) {
+      try {
+        const perm = await navigator.permissions.query({ name: "camera" } as PermissionDescriptor);
+        if (perm.state === "denied") {
+          setCameraError({
+            participantId,
+            message: CAMERA_MESSAGES.denied_pre,
+            hint: CAMERA_MESSAGES.denied_hint,
+          });
+          return;
+        }
+      } catch {
+        // permissions.query threw (e.g. unsupported descriptor) — proceed
+      }
+    }
+
+    // Request video only first; audio is optional
+    let videoStream: MediaStream;
+    try {
+      videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+    } catch (err) {
+      const error = err as Error;
+      console.error("[camera] getUserMedia(video) failed:", error.name, error.message);
+      setCameraError({
+        participantId,
+        message: `Error de cámara: ${error.name}`,
+        hint: error.message,
+      });
+      return;
+    }
+
+    // Try to add audio; if it fails, record video-only
+    try {
+      const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioStream.getAudioTracks().forEach((t) => videoStream.addTrack(t));
+    } catch (err) {
+      console.error("[camera] getUserMedia(audio) failed, proceeding video-only:", (err as Error).name);
+    }
+
+    streamRef.current = videoStream;
+    cancelledRef.current = false;
+    setRecordingId(participantId);
+  };
+
+  const startRecording = () => {
+    if (!streamRef.current || !recordingId) return;
+    const chunks: Blob[] = [];
+    const participantId = recordingId;
+    const recorder = new MediaRecorder(streamRef.current);
+    recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+    recorder.onstop = async () => {
+      if (cancelledRef.current) return;
+      const mimeType = chunks[0]?.type || "video/webm";
+      const ext = mimeType.includes("mp4") ? "mp4" : "webm";
+      const blob = new Blob(chunks, { type: mimeType });
+      const file = new File([blob], `recording-${Date.now()}.${ext}`, { type: mimeType });
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+      setRecordingId(null);
+      setIsRecording(false);
+      await handleVideoUpload(participantId, file);
+    };
+    recorder.start();
+    recorderRef.current = recorder;
+    setIsRecording(true);
+  };
+
+  const stopRecording = () => {
+    recorderRef.current?.stop();
+    setIsRecording(false);
+  };
+
+  const cancelCamera = () => {
+    cancelledRef.current = true;
+    if (recorderRef.current && recorderRef.current.state !== "inactive") {
+      recorderRef.current.stop();
+    }
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    recorderRef.current = null;
+    setRecordingId(null);
+    setIsRecording(false);
+  };
+
+  if (loading) return null;
+
+  const hasContent = participantChallenges.length > 0 || creatorChallenges.length > 0;
+  if (!hasContent) return null;
+
+  // Inline camera error banner — shows raw error name/message to aid debugging
+  const CameraErrorBanner = ({ participantId }: { participantId: number }) => {
+    const err = cameraError?.participantId === participantId ? cameraError : null;
+    if (!err) return null;
+    return (
+      <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 space-y-1.5">
+        <div className="flex items-start gap-2">
+          <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+          <div className="space-y-1 flex-1 min-w-0">
+            <p className="text-xs font-semibold text-destructive break-words">{err.message}</p>
+            {err.hint && (
+              <p className="text-[10px] text-muted-foreground font-mono break-words">{err.hint}</p>
+            )}
+          </div>
+          <button
+            onClick={() => setCameraError(null)}
+            className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h2 className="font-heading text-2xl tracking-wide">Retos</h2>
+      </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="video/*"
+        capture="environment"
+        className="hidden"
+        onChange={onFileSelected}
+      />
+
+      {participantChallenges.map((c) => (
+        <div key={c.participantId} className="rounded-xl border border-border bg-card p-4 shadow-sm space-y-3">
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <Swords className="h-4 w-4 text-primary" />
+                <span className="font-semibold text-sm">{c.title}</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                De {c.creatorUsername} · {c.type === "GROUP" && c.groupName ? c.groupName : "1v1"}
+                {c.exerciseName && ` · ${c.exerciseName}`}
+              </p>
+            </div>
+            <span className="text-xs font-bold text-primary">{c.rewardCoins} monedas</span>
+          </div>
+
+          {c.challengeStatus === "CLOSED" || c.participantStatus === "VALIDATED" || c.participantStatus === "DECLINED" ? (
+            <div className="flex items-center gap-2">
+              {c.participantStatus === "VALIDATED" ? (
+                <span className="flex items-center gap-1 rounded-full bg-green-500/10 px-3 py-1 text-xs font-semibold text-green-500">
+                  <Trophy className="h-3.5 w-3.5" /> Completado · +{c.rewardCoins} monedas
+                </span>
+              ) : c.participantStatus === "DECLINED" ? (
+                <span className="flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
+                  <Ban className="h-3.5 w-3.5" /> Rechazado
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
+                  Cerrado
+                </span>
+              )}
+            </div>
+          ) : c.participantStatus === "PENDING" ? (
+            <div className="flex gap-2">
+              <button
+                onClick={() => doAction({ participantId: c.participantId, action: "accept" })}
+                className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+              >
+                <Check className="h-3.5 w-3.5" /> Aceptar
+              </button>
+              <button
+                onClick={() => doAction({ participantId: c.participantId, action: "decline" })}
+                className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-destructive/10 px-3 py-2 text-xs font-semibold text-destructive hover:bg-destructive/20 transition-colors"
+              >
+                <X className="h-3.5 w-3.5" /> Rechazar
+              </button>
+            </div>
+          ) : c.participantStatus === "ACCEPTED" || c.participantStatus === "REJECTED" ? (
+            <div className="space-y-2">
+              <CameraErrorBanner participantId={c.participantId} />
+              {recordingId === c.participantId ? (
+                <div className="space-y-2">
+                  <video
+                    ref={previewRef}
+                    autoPlay
+                    muted
+                    playsInline
+                    className="w-full rounded-lg bg-black aspect-video object-cover"
+                  />
+                  <div className="flex gap-2">
+                    {!isRecording ? (
+                      <>
+                        <button
+                          onClick={startRecording}
+                          className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+                        >
+                          <Video className="h-3.5 w-3.5" /> Iniciar grabación
+                        </button>
+                        <button
+                          onClick={cancelCamera}
+                          className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-muted px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted/80 transition-colors"
+                        >
+                          <X className="h-3.5 w-3.5" /> Cancelar
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={stopRecording}
+                        className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-destructive px-3 py-2 text-xs font-semibold text-white hover:bg-destructive/90 transition-colors"
+                      >
+                        <Square className="h-3.5 w-3.5 fill-current" />
+                        <span className="flex items-center gap-1">
+                          Detener
+                          <span className="inline-block h-2 w-2 rounded-full bg-white animate-pulse" />
+                        </span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => triggerUpload(c.participantId)}
+                    disabled={uploading === c.participantId}
+                    className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-primary/10 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
+                  >
+                    <Upload className="h-3.5 w-3.5" />
+                    {uploading === c.participantId
+                      ? "Subiendo..."
+                      : c.participantStatus === "REJECTED"
+                      ? "Resubir archivo"
+                      : "Archivo"}
+                  </button>
+                  <button
+                    onClick={() => openCamera(c.participantId)}
+                    disabled={uploading === c.participantId}
+                    className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-primary/10 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
+                  >
+                    <Camera className="h-3.5 w-3.5" />
+                    {c.participantStatus === "REJECTED" ? "Regrabar" : "Grabar"}
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : c.participantStatus === "SUBMITTED" ? (
+            <div className="space-y-2">
+              {c.videoUrl && (
+                <video
+                  src={c.videoUrl.startsWith("/uploads/") ? c.videoUrl.replace("/uploads/", "/api/uploads/") : c.videoUrl}
+                  controls
+                  className="w-full rounded-lg"
+                />
+              )}
+              <span className="text-xs text-muted-foreground">Esperando validación del creador...</span>
+            </div>
+          ) : null}
+        </div>
+      ))}
+
+      {creatorChallenges.map((c) => (
+        <div key={c.challengeId} className="rounded-xl border border-primary/20 bg-card p-4 shadow-sm space-y-3">
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <Swords className="h-4 w-4 text-primary" />
+                <span className="font-semibold text-sm">{c.title}</span>
+                <span className="text-[10px] rounded-full bg-primary/10 px-2 py-0.5 text-primary font-medium">Creador</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {c.type === "GROUP" && c.groupName ? c.groupName : "1v1"}
+                {c.exerciseName && ` · ${c.exerciseName}`}
+                {" · "}{c.rewardCoins} monedas/persona
+              </p>
+            </div>
+            {c.challengeStatus === "CLOSED" ? (
+              <span className="text-[10px] rounded-full bg-muted px-2 py-0.5 text-muted-foreground font-medium">Cerrado</span>
+            ) : (
+              <button
+                onClick={() => doAction({ challengeId: c.challengeId, action: "close" })}
+                className="text-[10px] rounded-full bg-destructive/10 px-2 py-0.5 text-destructive font-medium hover:bg-destructive/20 transition-colors"
+              >
+                Cerrar reto
+              </button>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            {c.participants.map((p) => (
+              <div key={p.participantId} className="flex flex-col gap-2 rounded-lg bg-background p-2">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                    {p.username[0]?.toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold">{p.username}</p>
+                    <p className="text-[10px] text-muted-foreground">{p.status}</p>
+                  </div>
+                </div>
+
+                {p.status === "SUBMITTED" && c.challengeStatus !== "CLOSED" ? (
+                  <div className="w-full space-y-2">
+                    {p.videoUrl && (
+                      <video
+                        src={p.videoUrl.startsWith("/uploads/") ? p.videoUrl.replace("/uploads/", "/api/uploads/") : p.videoUrl}
+                        controls
+                        className="w-full rounded-lg mt-2"
+                      />
+                    )}
+                    <div className="flex items-center gap-1 justify-end">
+                      <button
+                        onClick={() => doAction({ participantId: p.participantId, action: "validate" })}
+                        className="rounded-lg bg-green-500/10 p-1.5 text-green-500 hover:bg-green-500/20 transition-colors"
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => doAction({ participantId: p.participantId, action: "reject" })}
+                        className="rounded-lg bg-destructive/10 p-1.5 text-destructive hover:bg-destructive/20 transition-colors"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ) : p.status === "VALIDATED" ? (
+                  <span className="flex items-center gap-1 text-[10px] text-green-500 font-medium">
+                    <Trophy className="h-3 w-3" /> Validado
+                  </span>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
