@@ -41,7 +41,7 @@ export default function RankingsPage() {
         const catData = await Promise.all(
           cats.map(async (cat) => {
             const prRes = await fetch(`/api/personal-records?categoryId=${cat.id}`);
-            const prs: any[] = await prRes.json();
+            const prs: Omit<RankingEntry, "tier">[] = await prRes.json();
             const entries: RankingEntry[] = prs.map((pr) => ({
               ...pr,
               tier: getTier(Number(pr.weightKg), cat),
