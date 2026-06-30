@@ -210,7 +210,7 @@ export function ChallengesInbox({ userId }: { userId: number }) {
 
           <div className="space-y-2">
             {c.participants.map((p) => (
-              <div key={p.participantId} className="flex items-center justify-between rounded-lg bg-background p-2">
+              <div key={p.participantId} className="flex flex-col gap-2 rounded-lg bg-background p-2">
                 <div className="flex items-center gap-2">
                   <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
                     {p.username[0]?.toUpperCase()}
