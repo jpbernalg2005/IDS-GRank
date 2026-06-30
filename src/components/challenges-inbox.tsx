@@ -61,8 +61,6 @@ export function ChallengesInbox({ userId }: { userId: number }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeUploadId, setActiveUploadId] = useState<number | null>(null);
 
-  // Camera recording requires a secure context (HTTPS or localhost)
-  const canRecord = typeof window !== "undefined" && window.isSecureContext && !!navigator.mediaDevices;
 
   // recording state
   const [recordingId, setRecordingId] = useState<number | null>(null);
@@ -128,53 +126,50 @@ export function ChallengesInbox({ userId }: { userId: number }) {
   const openCamera = async (participantId: number) => {
     setCameraError(null);
 
-    if (!window.isSecureContext || !navigator.mediaDevices) {
+    // Pre-check permission state without triggering the browser prompt.
+    // Guard: navigator.permissions is not available in all browsers.
+    if (navigator.permissions) {
+      try {
+        const perm = await navigator.permissions.query({ name: "camera" } as PermissionDescriptor);
+        if (perm.state === "denied") {
+          setCameraError({
+            participantId,
+            message: CAMERA_MESSAGES.denied_pre,
+            hint: CAMERA_MESSAGES.denied_hint,
+          });
+          return;
+        }
+      } catch {
+        // permissions.query threw (e.g. unsupported descriptor) — proceed
+      }
+    }
+
+    // Request video only first; audio is optional
+    let videoStream: MediaStream;
+    try {
+      videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+    } catch (err) {
+      const error = err as Error;
+      console.error("[camera] getUserMedia(video) failed:", error.name, error.message);
       setCameraError({
         participantId,
-        message: "La grabación requiere una conexión segura (HTTPS).",
-        hint: "Usa el botón Archivo para subir un video desde tu dispositivo.",
+        message: `Error de cámara: ${error.name}`,
+        hint: error.message,
       });
       return;
     }
 
-    // Pre-check permission state without triggering the browser prompt
+    // Try to add audio; if it fails, record video-only
     try {
-      const perm = await navigator.permissions.query({ name: "camera" } as PermissionDescriptor);
-      if (perm.state === "denied") {
-        setCameraError({
-          participantId,
-          message: CAMERA_MESSAGES.denied_pre,
-          hint: CAMERA_MESSAGES.denied_hint,
-        });
-        return;
-      }
-    } catch {
-      // Permissions API unavailable — proceed and let getUserMedia handle it
+      const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioStream.getAudioTracks().forEach((t) => videoStream.addTrack(t));
+    } catch (err) {
+      console.error("[camera] getUserMedia(audio) failed, proceeding video-only:", (err as Error).name);
     }
 
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      streamRef.current = stream;
-      cancelledRef.current = false;
-      setRecordingId(participantId);
-    } catch (err) {
-      const name = (err as Error).name;
-      if (name === "NotAllowedError" || name === "PermissionDeniedError") {
-        setCameraError({
-          participantId,
-          message: CAMERA_MESSAGES.NotAllowedError,
-          hint: CAMERA_MESSAGES.NotAllowedHint,
-        });
-      } else if (name === "NotFoundError" || name === "DevicesNotFoundError") {
-        setCameraError({ participantId, message: CAMERA_MESSAGES.NotFoundError });
-      } else {
-        setCameraError({
-          participantId,
-          message: CAMERA_MESSAGES.generic,
-          hint: CAMERA_MESSAGES.genericHint,
-        });
-      }
-    }
+    streamRef.current = videoStream;
+    cancelledRef.current = false;
+    setRecordingId(participantId);
   };
 
   const startRecording = () => {
@@ -222,7 +217,7 @@ export function ChallengesInbox({ userId }: { userId: number }) {
   const hasContent = participantChallenges.length > 0 || creatorChallenges.length > 0;
   if (!hasContent) return null;
 
-  // Inline camera error banner
+  // Inline camera error banner — shows raw error name/message to aid debugging
   const CameraErrorBanner = ({ participantId }: { participantId: number }) => {
     const err = cameraError?.participantId === participantId ? cameraError : null;
     if (!err) return null;
@@ -230,9 +225,11 @@ export function ChallengesInbox({ userId }: { userId: number }) {
       <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 space-y-1.5">
         <div className="flex items-start gap-2">
           <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
-          <div className="space-y-0.5 flex-1">
-            <p className="text-xs font-semibold text-destructive">{err.message}</p>
-            {err.hint && <p className="text-xs text-muted-foreground">{err.hint}</p>}
+          <div className="space-y-1 flex-1 min-w-0">
+            <p className="text-xs font-semibold text-destructive break-words">{err.message}</p>
+            {err.hint && (
+              <p className="text-[10px] text-muted-foreground font-mono break-words">{err.hint}</p>
+            )}
           </div>
           <button
             onClick={() => setCameraError(null)}
@@ -363,16 +360,14 @@ export function ChallengesInbox({ userId }: { userId: number }) {
                       ? "Resubir archivo"
                       : "Archivo"}
                   </button>
-                  {canRecord && (
-                    <button
-                      onClick={() => openCamera(c.participantId)}
-                      disabled={uploading === c.participantId}
-                      className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-primary/10 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
-                    >
-                      <Camera className="h-3.5 w-3.5" />
-                      {c.participantStatus === "REJECTED" ? "Regrabar" : "Grabar"}
-                    </button>
-                  )}
+                  <button
+                    onClick={() => openCamera(c.participantId)}
+                    disabled={uploading === c.participantId}
+                    className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-primary/10 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
+                  >
+                    <Camera className="h-3.5 w-3.5" />
+                    {c.participantStatus === "REJECTED" ? "Regrabar" : "Grabar"}
+                  </button>
                 </div>
               )}
             </div>
