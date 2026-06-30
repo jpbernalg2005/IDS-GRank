@@ -61,6 +61,9 @@ export function ChallengesInbox({ userId }: { userId: number }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeUploadId, setActiveUploadId] = useState<number | null>(null);
 
+  // Camera recording requires a secure context (HTTPS or localhost)
+  const canRecord = typeof window !== "undefined" && window.isSecureContext && !!navigator.mediaDevices;
+
   // recording state
   const [recordingId, setRecordingId] = useState<number | null>(null);
   const [isRecording, setIsRecording] = useState(false);
@@ -124,6 +127,15 @@ export function ChallengesInbox({ userId }: { userId: number }) {
 
   const openCamera = async (participantId: number) => {
     setCameraError(null);
+
+    if (!window.isSecureContext || !navigator.mediaDevices) {
+      setCameraError({
+        participantId,
+        message: "La grabación requiere una conexión segura (HTTPS).",
+        hint: "Usa el botón Archivo para subir un video desde tu dispositivo.",
+      });
+      return;
+    }
 
     // Pre-check permission state without triggering the browser prompt
     try {
@@ -351,14 +363,16 @@ export function ChallengesInbox({ userId }: { userId: number }) {
                       ? "Resubir archivo"
                       : "Archivo"}
                   </button>
-                  <button
-                    onClick={() => openCamera(c.participantId)}
-                    disabled={uploading === c.participantId}
-                    className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-primary/10 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
-                  >
-                    <Camera className="h-3.5 w-3.5" />
-                    {c.participantStatus === "REJECTED" ? "Regrabar" : "Grabar"}
-                  </button>
+                  {canRecord && (
+                    <button
+                      onClick={() => openCamera(c.participantId)}
+                      disabled={uploading === c.participantId}
+                      className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-primary/10 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
+                    >
+                      <Camera className="h-3.5 w-3.5" />
+                      {c.participantStatus === "REJECTED" ? "Regrabar" : "Grabar"}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
