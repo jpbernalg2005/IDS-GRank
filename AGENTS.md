@@ -34,7 +34,7 @@ Definidas en `docker-compose.yml`; no se necesita ningún archivo a mano para le
 | `AUTH_SECRET` | Firma de JWT de NextAuth v5 |
 | `NEXTAUTH_URL` | URL base de la app para callbacks de auth |
 
-Las subidas de video se guardan en el filesystem local (`public/uploads/`), **no** se usa el token de UploadThing pese a estar en `dependencies`.
+Las subidas de video se guardan de forma híbrida: si la variable de entorno `UPLOADTHING_TOKEN` está configurada (modo producción), se suben a **UploadThing** usando `UTApi` de `uploadthing/server`. Si no está configurada (desarrollo local), se guardan en el filesystem local (`public/uploads/`).
 
 # Testing
 
