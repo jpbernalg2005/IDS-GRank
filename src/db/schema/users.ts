@@ -14,6 +14,7 @@ export const users = pgTable("users", {
   dateOfBirth: timestamp("date_of_birth"),
   experienceLevel: varchar("experience_level", { length: 20 }).default("BEGINNER"),
   totalPoints: integer("total_points").default(0),
+  coins: integer("coins").notNull().default(100),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
