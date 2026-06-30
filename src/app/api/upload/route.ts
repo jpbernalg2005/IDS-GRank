@@ -19,7 +19,7 @@ export async function POST(req: Request) {
     await mkdir(uploadDir, { recursive: true });
     await writeFile(join(uploadDir, fileName), buffer);
 
-    return Response.json({ success: true, url: `/uploads/${fileName}`, fileName });
+    return Response.json({ success: true, url: `/api/uploads/${fileName}`, fileName });
   } catch (error) {
     console.error("Upload error:", error);
     return Response.json({ error: "Error al subir archivo" }, { status: 500 });
