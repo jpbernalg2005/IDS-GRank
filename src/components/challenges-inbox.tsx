@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Swords, Check, X, Upload, Eye, Trophy, Ban } from "lucide-react";
+import { Swords, Check, X, Upload, Trophy, Ban } from "lucide-react";
 
 interface ParticipantChallenge {
   participantId: number;
@@ -167,7 +167,16 @@ export function ChallengesInbox({ userId }: { userId: number }) {
               {uploading === c.participantId ? "Subiendo..." : c.participantStatus === "REJECTED" ? "Resubir evidencia" : "Subir evidencia"}
             </button>
           ) : c.participantStatus === "SUBMITTED" ? (
-            <span className="text-xs text-muted-foreground">Esperando validación del creador...</span>
+            <div className="space-y-2">
+              {c.videoUrl && (
+                <video
+                  src={c.videoUrl.startsWith("/uploads/") ? c.videoUrl.replace("/uploads/", "/api/uploads/") : c.videoUrl}
+                  controls
+                  className="w-full rounded-lg"
+                />
+              )}
+              <span className="text-xs text-muted-foreground">Esperando validación del creador...</span>
+            </div>
           ) : null}
         </div>
       ))}
@@ -213,29 +222,28 @@ export function ChallengesInbox({ userId }: { userId: number }) {
                 </div>
 
                 {p.status === "SUBMITTED" && c.challengeStatus !== "CLOSED" ? (
-                  <div className="flex items-center gap-1">
+                  <div className="w-full space-y-2">
                     {p.videoUrl && (
-                      <a
-                        href={p.videoUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="rounded-lg bg-muted p-1.5 text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        <Eye className="h-3.5 w-3.5" />
-                      </a>
+                      <video
+                        src={p.videoUrl.startsWith("/uploads/") ? p.videoUrl.replace("/uploads/", "/api/uploads/") : p.videoUrl}
+                        controls
+                        className="w-full rounded-lg mt-2"
+                      />
                     )}
-                    <button
-                      onClick={() => doAction({ participantId: p.participantId, action: "validate" })}
-                      className="rounded-lg bg-green-500/10 p-1.5 text-green-500 hover:bg-green-500/20 transition-colors"
-                    >
-                      <Check className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      onClick={() => doAction({ participantId: p.participantId, action: "reject" })}
-                      className="rounded-lg bg-destructive/10 p-1.5 text-destructive hover:bg-destructive/20 transition-colors"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
+                    <div className="flex items-center gap-1 justify-end">
+                      <button
+                        onClick={() => doAction({ participantId: p.participantId, action: "validate" })}
+                        className="rounded-lg bg-green-500/10 p-1.5 text-green-500 hover:bg-green-500/20 transition-colors"
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => doAction({ participantId: p.participantId, action: "reject" })}
+                        className="rounded-lg bg-destructive/10 p-1.5 text-destructive hover:bg-destructive/20 transition-colors"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
                 ) : p.status === "VALIDATED" ? (
                   <span className="flex items-center gap-1 text-[10px] text-green-500 font-medium">
