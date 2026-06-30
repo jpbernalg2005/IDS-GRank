@@ -46,5 +46,10 @@
     "tailwindcss-animate": "^1.0.7",
     "typescript": "^5",
     "vitest": "^4.1.9"
+  },
+  "overrides": {
+    "effect": "^3.20.0",
+    "esbuild": "^0.25.0",
+    "postcss": "^8.5.10"
   }
 }
