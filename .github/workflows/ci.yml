@@ -1,0 +1,44 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Lint
+        run: npm run lint
+
+      - name: Build application
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+          AUTH_SECRET: dummy-auth-secret-for-ci-build-purposes-only-32charslong
+          NEXTAUTH_URL: http://localhost:3000
+          NEXTAUTH_SECRET: dummy-auth-secret-for-ci-build-purposes-only-32charslong
+        run: npm run build
+
+      - name: Run Tests (Vitest)
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+          AUTH_SECRET: dummy-auth-secret-for-ci-build-purposes-only-32charslong
+          NEXTAUTH_URL: http://localhost:3000
+          NEXTAUTH_SECRET: dummy-auth-secret-for-ci-build-purposes-only-32charslong
+        run: npm test
