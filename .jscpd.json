@@ -1,0 +1,13 @@
+{
+  "threshold": 15,
+  "reporters": ["html", "markdown"],
+  "ignore": [
+    "**/node_modules/**",
+    "**/.next/**",
+    "**/out/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/.git/**",
+    "**/.github/**"
+  ]
+}
