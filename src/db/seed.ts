@@ -65,10 +65,10 @@ async function seed() {
 
   const rewardData = [
     // Insignias (BADGE)
-    { name: "Novato en Forma", description: "Primer PR registrado en GRank", type: "BADGE", costCoins: 50, assetValue: "🏅" },
-    { name: "Guerrero del Hierro", description: "Supera 100 kg en cualquier ejercicio", type: "BADGE", costCoins: 150, assetValue: "⚔️" },
-    { name: "Élite del Gimnasio", description: "Alcanza el rango Diamond", type: "BADGE", costCoins: 300, assetValue: "💎" },
-    { name: "Campeón Invicto", description: "Gana 10 retos consecutivos", type: "BADGE", costCoins: 500, assetValue: "🏆" },
+    { name: "Novato en Forma", description: "Primer PR registrado en GRank", type: "BADGE", costCoins: 0, assetValue: "🏅" },
+    { name: "Guerrero del Hierro", description: "Supera 100 kg en cualquier ejercicio", type: "BADGE", costCoins: 0, assetValue: "⚔️" },
+    { name: "Élite del Gimnasio", description: "Alcanza el rango Diamond", type: "BADGE", costCoins: 0, assetValue: "💎" },
+    { name: "Campeón Invicto", description: "Gana 10 retos consecutivos", type: "BADGE", costCoins: 0, assetValue: "🏆" },
     // Marcos de avatar (AVATAR_FRAME)
     { name: "Marco Llamas", description: "Un marco ardiente para tu avatar", type: "AVATAR_FRAME", costCoins: 100, assetValue: "🔥" },
     { name: "Marco Eléctrico", description: "Tu avatar con una aura de rayos", type: "AVATAR_FRAME", costCoins: 200, assetValue: "⚡" },

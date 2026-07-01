@@ -132,6 +132,8 @@ function RewardCard({ reward, owned, coins, onRedeem, redeeming }: RewardCardPro
           >
             {redeeming ? (
               <Loader2 className="h-3 w-3 animate-spin" />
+            ) : reward.costCoins === 0 ? (
+              "Reclamar"
             ) : canAfford ? (
               "Canjear"
             ) : (
