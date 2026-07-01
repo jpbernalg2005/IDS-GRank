@@ -1,5 +1,6 @@
 import { db } from "./index";
-import { exerciseCategories, exercises, users } from "./schema";
+import { exerciseCategories, exercises, users, rewards } from "./schema";
+
 import { hash } from "bcryptjs";
 
 async function seed() {
@@ -58,6 +59,30 @@ async function seed() {
   } else {
     console.log("Demo user already exists, skipping");
   }
+
+  // --- Rewards ---
+  await db.delete(rewards);
+
+  const rewardData = [
+    // Insignias (BADGE)
+    { name: "Novato en Forma", description: "Primer PR registrado en GRank", type: "BADGE", costCoins: 0, assetValue: "🏅" },
+    { name: "Guerrero del Hierro", description: "Supera 100 kg en cualquier ejercicio", type: "BADGE", costCoins: 0, assetValue: "⚔️" },
+    { name: "Élite del Gimnasio", description: "Alcanza el rango Diamond", type: "BADGE", costCoins: 0, assetValue: "💎" },
+    { name: "Campeón Invicto", description: "Gana 10 retos consecutivos", type: "BADGE", costCoins: 0, assetValue: "🏆" },
+    // Marcos de avatar (AVATAR_FRAME)
+    { name: "Marco Llamas", description: "Un marco ardiente para tu avatar", type: "AVATAR_FRAME", costCoins: 100, assetValue: "🔥" },
+    { name: "Marco Eléctrico", description: "Tu avatar con una aura de rayos", type: "AVATAR_FRAME", costCoins: 200, assetValue: "⚡" },
+    { name: "Marco Cósmico", description: "El universo rodea tu avatar", type: "AVATAR_FRAME", costCoins: 400, assetValue: "🌌" },
+    // Títulos (TITLE)
+    { name: "La Bestia", description: "Para quienes levantan más que todos", type: "TITLE", costCoins: 75, assetValue: "La Bestia" },
+    { name: "Máquina de Guerra", description: "Entrenamiento sin descanso", type: "TITLE", costCoins: 250, assetValue: "Máquina de Guerra" },
+    { name: "Leyenda Viviente", description: "El título más codiciado de GRank", type: "TITLE", costCoins: 500, assetValue: "Leyenda Viviente" },
+  ];
+
+  for (const r of rewardData) {
+    await db.insert(rewards).values(r);
+  }
+  console.log("Rewards seeded!");
 
   console.log("Seed completed!");
 }

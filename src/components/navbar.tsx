@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Dumbbell, Trophy, UserRound, Home, Users, UserPlus } from "lucide-react";
+import { Dumbbell, Trophy, UserRound, Home, Gift, UserPlus } from "lucide-react";
 
 const navItems = [
   { href: "/", label: "Inicio", icon: Home },
   { href: "/rankings", label: "Rankings", icon: Trophy },
   { href: "/exercises", label: "Ejercicios", icon: Dumbbell },
   { href: "/friends", label: "Amigos", icon: UserPlus },
-  { href: "/groups", label: "Grupos", icon: Users },
+  { href: "/rewards", label: "Tienda", icon: Gift },
   { href: "/profile", label: "Perfil", icon: UserRound },
 ];
 
