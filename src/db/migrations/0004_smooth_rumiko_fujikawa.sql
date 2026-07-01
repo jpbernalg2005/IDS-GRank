@@ -1,0 +1,1 @@
+ALTER TABLE "rewards" ADD COLUMN "milestone_key" varchar(50);

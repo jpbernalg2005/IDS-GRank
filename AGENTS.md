@@ -48,3 +48,10 @@ npm run test:watch # modo watch (re-corre al guardar)
 - Tests unitarios: lógica aislada (ej. `getTier`), sin BD.
 - Tests de integración: aplican el schema desde `src/db/migrations/` a un contenedor nuevo, siembran datos y lo destruyen al terminar.
 - Si cambias un schema en `src/db/schema/`, regenera las migraciones antes de testear: `npm run db:generate`.
+
+# Recompensas tipo BADGE (milestones)
+
+Las 4 recompensas `BADGE` en `src/db/seed.ts` (costCoins 0) representan logros, no compras. `rewards.milestoneKey` (nullable) marca cuál: `FIRST_PR` | `WEIGHT_100KG` | `DIAMOND_TIER` | `CONSECUTIVE_WINS_10`. `POST /api/rewards` valida elegibilidad server-side antes de canjear (`isEligibleForMilestone` en `src/app/api/rewards/route.ts`); ver esa función para el detalle de cada chequeo.
+
+- La columna `personal_records.isVerified` es dead code (nunca sale de `PENDING`) — no la uses para gating, dejaría los logros inalcanzables.
+- `CONSECUTIVE_WINS_10` está deliberadamente sin implementar: la semántica de victorias/rachas de retos es una decisión de producto pendiente. El endpoint rechaza el canje de esa insignia con "Este logro aún no está disponible" hasta que se resuelva.
