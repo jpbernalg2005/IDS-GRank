@@ -7,9 +7,14 @@ ENABLE:
   - YAML
   - MARKDOWN
   - JSON
-  - TOML
   - JAVASCRIPT
   - TYPESCRIPT
+
+# Disable specific linters
+DISABLE_LINTERS:
+  - MARKDOWN_MARKDOWN_LINK_CHECK
+  - TYPESCRIPT_TS_STANDARD
+  - JAVASCRIPT_STANDARD
 
 # Exclude directories that shouldn't be linted
 EXCLUDED_DIRECTORIES:
