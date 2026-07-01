@@ -1,6 +1,7 @@
 {
   "threshold": 15,
   "reporters": ["html", "markdown"],
+  "format": ["javascript", "typescript", "tsx", "css", "sql"],
   "ignore": [
     "**/node_modules/**",
     "**/.next/**",
@@ -9,10 +10,15 @@
     "**/build/**",
     "**/.git/**",
     "**/.github/**",
+    "*.md",
     "**/*.md",
+    "*.json",
     "**/*.json",
+    "*.yml",
     "**/*.yml",
+    "*.yaml",
     "**/*.yaml",
+    "*.map",
     "**/*.map"
   ]
 }
