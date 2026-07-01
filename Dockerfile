@@ -28,4 +28,8 @@ COPY --from=builder /app/tsconfig.json ./tsconfig.json
 EXPOSE 3000
 ENV PORT=3000
 
+HEALTHCHECK --interval=30s --timeout=3s \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
+
 CMD ["sh", "-c", "npx drizzle-kit push && npm run start"]
+
