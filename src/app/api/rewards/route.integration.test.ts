@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi, type Mock } from "vitest";
-import { users, rewards, userRewards } from "@/db/schema";
+import { users, rewards, userRewards, exerciseCategories, exercises, personalRecords } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { createTestDb, destroyTestDb, resetDb, type TestDbContext } from "@/test/db";
 
@@ -36,7 +36,7 @@ describe("Rewards API (integración)", () => {
     return user;
   }
 
-  async function seedReward({ costCoins = 100, isActive = true } = {}) {
+  async function seedReward({ costCoins = 100, isActive = true, milestoneKey = null as string | null } = {}) {
     const [reward] = await ctx.db
       .insert(rewards)
       .values({
@@ -46,9 +46,44 @@ describe("Rewards API (integración)", () => {
         costCoins,
         assetValue: "🏅",
         isActive,
+        milestoneKey,
       })
       .returning();
     return reward;
+  }
+
+  /** Siembra una categoría con umbral Diamond de 100kg (para pruebas de tier). */
+  async function seedCategory() {
+    const [category] = await ctx.db
+      .insert(exerciseCategories)
+      .values({
+        name: "Chest",
+        tierPlastic: "0",
+        tierBronze: "40",
+        tierGold: "60",
+        tierPlatinum: "80",
+        tierEmerald: "90",
+        tierDiamond: "100",
+        tierChallenger: "140",
+      })
+      .returning();
+    return category;
+  }
+
+  async function seedExercise(categoryId: number) {
+    const [exercise] = await ctx.db
+      .insert(exercises)
+      .values({ categoryId, name: "Bench Press" })
+      .returning();
+    return exercise;
+  }
+
+  async function seedPersonalRecord(userId: number, exerciseId: number, weightKg: string) {
+    const [record] = await ctx.db
+      .insert(personalRecords)
+      .values({ userId, exerciseId, weightKg })
+      .returning();
+    return record;
   }
 
   function getReq() {
@@ -206,5 +241,103 @@ describe("Rewards API (integración)", () => {
     (auth as Mock).mockResolvedValue(null);
     const res = await POST(postReq({ rewardId: 1 }));
     expect(res.status).toBe(401);
+  });
+
+  // --- Milestone: FIRST_PR ---
+
+  it("POST FIRST_PR con al menos un PR registrado → 201", async () => {
+    const user = await seedUser();
+    const category = await seedCategory();
+    const exercise = await seedExercise(category.id);
+    await seedPersonalRecord(user.id, exercise.id, "50");
+    const reward = await seedReward({ costCoins: 0, milestoneKey: "FIRST_PR" });
+
+    (auth as Mock).mockResolvedValue({ user: { id: String(user.id) } });
+    const res = await POST(postReq({ rewardId: reward.id }));
+    expect(res.status).toBe(201);
+  });
+
+  it("POST FIRST_PR sin PRs registrados → 400", async () => {
+    const user = await seedUser();
+    const reward = await seedReward({ costCoins: 0, milestoneKey: "FIRST_PR" });
+
+    (auth as Mock).mockResolvedValue({ user: { id: String(user.id) } });
+    const res = await POST(postReq({ rewardId: reward.id }));
+    expect(res.status).toBe(400);
+
+    const data = await res.json();
+    expect(data.error).toMatch(/[Aa]ún no cumples este logro/);
+  });
+
+  // --- Milestone: WEIGHT_100KG ---
+
+  it("POST WEIGHT_100KG con un PR >= 100kg → 201", async () => {
+    const user = await seedUser();
+    const category = await seedCategory();
+    const exercise = await seedExercise(category.id);
+    await seedPersonalRecord(user.id, exercise.id, "100");
+    const reward = await seedReward({ costCoins: 0, milestoneKey: "WEIGHT_100KG" });
+
+    (auth as Mock).mockResolvedValue({ user: { id: String(user.id) } });
+    const res = await POST(postReq({ rewardId: reward.id }));
+    expect(res.status).toBe(201);
+  });
+
+  it("POST WEIGHT_100KG con PRs por debajo de 100kg → 400", async () => {
+    const user = await seedUser();
+    const category = await seedCategory();
+    const exercise = await seedExercise(category.id);
+    await seedPersonalRecord(user.id, exercise.id, "99.99");
+    const reward = await seedReward({ costCoins: 0, milestoneKey: "WEIGHT_100KG" });
+
+    (auth as Mock).mockResolvedValue({ user: { id: String(user.id) } });
+    const res = await POST(postReq({ rewardId: reward.id }));
+    expect(res.status).toBe(400);
+
+    const data = await res.json();
+    expect(data.error).toMatch(/[Aa]ún no cumples este logro/);
+  });
+
+  // --- Milestone: DIAMOND_TIER ---
+
+  it("POST DIAMOND_TIER con un PR que alcanza el tier Diamond → 201", async () => {
+    const user = await seedUser();
+    const category = await seedCategory(); // tierDiamond = 100
+    const exercise = await seedExercise(category.id);
+    await seedPersonalRecord(user.id, exercise.id, "100");
+    const reward = await seedReward({ costCoins: 0, milestoneKey: "DIAMOND_TIER" });
+
+    (auth as Mock).mockResolvedValue({ user: { id: String(user.id) } });
+    const res = await POST(postReq({ rewardId: reward.id }));
+    expect(res.status).toBe(201);
+  });
+
+  it("POST DIAMOND_TIER con PRs por debajo del tier Diamond → 400", async () => {
+    const user = await seedUser();
+    const category = await seedCategory(); // tierDiamond = 100
+    const exercise = await seedExercise(category.id);
+    await seedPersonalRecord(user.id, exercise.id, "50"); // tier GOLD
+    const reward = await seedReward({ costCoins: 0, milestoneKey: "DIAMOND_TIER" });
+
+    (auth as Mock).mockResolvedValue({ user: { id: String(user.id) } });
+    const res = await POST(postReq({ rewardId: reward.id }));
+    expect(res.status).toBe(400);
+
+    const data = await res.json();
+    expect(data.error).toMatch(/[Aa]ún no cumples este logro/);
+  });
+
+  // --- Milestone: CONSECUTIVE_WINS_10 (no implementado, siempre rechazado) ---
+
+  it("POST CONSECUTIVE_WINS_10 siempre retorna 400 (lógica de rachas aún no implementada)", async () => {
+    const user = await seedUser();
+    const reward = await seedReward({ costCoins: 0, milestoneKey: "CONSECUTIVE_WINS_10" });
+
+    (auth as Mock).mockResolvedValue({ user: { id: String(user.id) } });
+    const res = await POST(postReq({ rewardId: reward.id }));
+    expect(res.status).toBe(400);
+
+    const data = await res.json();
+    expect(data.error).toMatch(/[Nn]o está disponible/);
   });
 });

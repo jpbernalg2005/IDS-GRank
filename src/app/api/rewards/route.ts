@@ -1,7 +1,52 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
-import { users, rewards, userRewards } from "@/db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { users, rewards, userRewards, personalRecords, exercises, exerciseCategories } from "@/db/schema";
+import { eq, and, gte, sql } from "drizzle-orm";
+import { getTier, TIERS } from "@/lib/tiers";
+
+async function isEligibleForMilestone(userId: number, milestoneKey: string): Promise<boolean> {
+  switch (milestoneKey) {
+    case "FIRST_PR": {
+      const [row] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(personalRecords)
+        .where(eq(personalRecords.userId, userId));
+      return Number(row.count) >= 1;
+    }
+    case "WEIGHT_100KG": {
+      const [row] = await db
+        .select({ id: personalRecords.id })
+        .from(personalRecords)
+        .where(and(eq(personalRecords.userId, userId), gte(personalRecords.weightKg, "100")))
+        .limit(1);
+      return !!row;
+    }
+    case "DIAMOND_TIER": {
+      const records = await db
+        .select({
+          weightKg: personalRecords.weightKg,
+          tierPlastic: exerciseCategories.tierPlastic,
+          tierBronze: exerciseCategories.tierBronze,
+          tierGold: exerciseCategories.tierGold,
+          tierPlatinum: exerciseCategories.tierPlatinum,
+          tierEmerald: exerciseCategories.tierEmerald,
+          tierDiamond: exerciseCategories.tierDiamond,
+          tierChallenger: exerciseCategories.tierChallenger,
+        })
+        .from(personalRecords)
+        .innerJoin(exercises, eq(personalRecords.exerciseId, exercises.id))
+        .innerJoin(exerciseCategories, eq(exercises.categoryId, exerciseCategories.id))
+        .where(eq(personalRecords.userId, userId));
+
+      return records.some((r) => {
+        const tier = getTier(Number(r.weightKg), r);
+        return TIERS.indexOf(tier) >= TIERS.indexOf("DIAMOND");
+      });
+    }
+    default:
+      return true;
+  }
+}
 
 export async function GET(_req: Request) {
   const session = await auth();
@@ -46,6 +91,17 @@ export async function POST(req: Request) {
   });
   if (existing) {
     return Response.json({ error: "Ya tienes esta recompensa" }, { status: 400 });
+  }
+
+  // Check milestone eligibility (for BADGE rewards tied to an achievement)
+  if (reward.milestoneKey) {
+    if (reward.milestoneKey === "CONSECUTIVE_WINS_10") {
+      return Response.json({ error: "Este logro aún no está disponible" }, { status: 400 });
+    }
+    const eligible = await isEligibleForMilestone(userId, reward.milestoneKey);
+    if (!eligible) {
+      return Response.json({ error: "Aún no cumples este logro" }, { status: 400 });
+    }
   }
 
   // Check balance

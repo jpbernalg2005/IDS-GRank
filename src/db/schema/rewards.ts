@@ -9,6 +9,7 @@ export const rewards = pgTable("rewards", {
   type: varchar("type", { length: 20 }).notNull(), // BADGE | AVATAR_FRAME | TITLE
   costCoins: integer("cost_coins").notNull(),
   assetValue: varchar("asset_value", { length: 255 }).notNull(), // emoji / clase CSS / texto del título
+  milestoneKey: varchar("milestone_key", { length: 50 }), // FIRST_PR | WEIGHT_100KG | DIAMOND_TIER | CONSECUTIVE_WINS_10 | null
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
