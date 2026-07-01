@@ -10,6 +10,7 @@ import {
   competitionGroups,
 } from "@/db/schema";
 import { eq, and, or, sql } from "drizzle-orm";
+import { createNotification } from "@/lib/notifications";
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -103,6 +104,17 @@ export async function POST(req: Request) {
     }));
 
     await tx.insert(challengeParticipants).values(participantRows);
+
+    // Notify each participant that they received a challenge
+    for (const pid of participantUserIds) {
+      await createNotification(tx, {
+        userId: pid,
+        type: "CHALLENGE_RECEIVED",
+        title: `Te retaron: ${title.trim()}`,
+        body: `Tienes un nuevo reto con recompensa de ${rewardCoins} monedas`,
+        linkUrl: "/",
+      });
+    }
 
     return challenge;
   });
@@ -365,6 +377,13 @@ export async function PUT(req: Request) {
         .update(users)
         .set({ coins: sql`${users.coins} + ${challenge.rewardCoins}` })
         .where(eq(users.id, participant.userId));
+      await createNotification(tx, {
+        userId: participant.userId,
+        type: "CHALLENGE_VALIDATED",
+        title: "Tu reto fue validado",
+        body: `+${challenge.rewardCoins} monedas por "${challenge.title}"`,
+        linkUrl: "/",
+      });
     });
     return Response.json({ success: true });
   }
@@ -373,10 +392,19 @@ export async function PUT(req: Request) {
     if (challenge.creatorId !== userId) return Response.json({ error: "Solo el creador puede rechazar" }, { status: 403 });
     if (participant.status !== "SUBMITTED") return Response.json({ error: "Estado inválido" }, { status: 400 });
 
-    await db
-      .update(challengeParticipants)
-      .set({ status: "REJECTED" })
-      .where(eq(challengeParticipants.id, participantId));
+    await db.transaction(async (tx) => {
+      await tx
+        .update(challengeParticipants)
+        .set({ status: "REJECTED" })
+        .where(eq(challengeParticipants.id, participantId));
+      await createNotification(tx, {
+        userId: participant.userId,
+        type: "CHALLENGE_REJECTED",
+        title: "Tu envío fue rechazado",
+        body: `El creador rechazó tu vídeo para "${challenge.title}"`,
+        linkUrl: "/",
+      });
+    });
     return Response.json({ success: true });
   }
 

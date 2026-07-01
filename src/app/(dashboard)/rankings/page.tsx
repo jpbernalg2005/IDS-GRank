@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { getTier, TIER_COLORS, TIER_LABELS, type Tier } from "@/lib/tiers";
+import { AvatarWithFrame, TitleChip } from "@/components/equipped-cosmetics";
 
 interface Category {
   id: number;
@@ -23,6 +24,8 @@ interface RankingEntry {
   sex?: string;
   userWeightKg?: string;
   tier: Tier;
+  equippedFrameAsset?: string | null;
+  equippedTitleAsset?: string | null;
 }
 
 type FilterMode = "global" | "weight" | "sex";
@@ -140,8 +143,12 @@ export default function RankingsPage() {
                     }`}>
                       {idx + 1}
                     </span>
+                    <AvatarWithFrame label={row.username[0]?.toUpperCase() ?? ""} frameAsset={row.equippedFrameAsset} size="sm" />
                     <div>
-                      <p className="text-sm font-semibold">{row.username}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-sm font-semibold">{row.username}</p>
+                        {row.equippedTitleAsset && <TitleChip title={row.equippedTitleAsset} />}
+                      </div>
                       <p className="text-[10px] text-muted-foreground">{row.exerciseName}</p>
                     </div>
                   </div>

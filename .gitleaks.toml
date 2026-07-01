@@ -1,0 +1,9 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "False-positive generic-api-key matches on rewards.milestoneKey enum literals (not secrets)"
+regexTarget = "secret"
+regexes = [
+  '''^(FIRST_PR|WEIGHT_100KG|DIAMOND_TIER|CONSECUTIVE_WINS_10)$''',
+]

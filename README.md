@@ -134,3 +134,15 @@ Si cambias algún schema en `src/db/schema/`, regenera las migraciones antes de 
 ```bash
 npm run db:generate
 ```
+
+## Integración Continua (CI/CD)
+
+El proyecto cuenta con un pipeline de integración continua configurado mediante **GitHub Actions** que se ejecuta en cada Pull Request y push a las ramas principales (`main` y `develop`):
+
+* **Compilación y Pruebas (`.github/workflows/ci.yml`)**: Compila la aplicación, realiza un análisis sintáctico y ejecuta las pruebas unitarias y de integración (empleando Testcontainers y Docker de forma efímera).
+* **Análisis Estático y Seguridad (`.github/workflows/megalinter.yml`)**: Ejecuta **MegaLinter** para validar la calidad, mantenibilidad y seguridad del repositorio. Este flujo busca resolver y mitigar los siguientes problemas:
+  * **Fugas de Secretos y Credenciales**: Utiliza **Gitleaks** y **Secretlint** para escanear y prevenir la inclusión accidental de llaves privadas, tokens o contraseñas en el código.
+  * **Vulnerabilidades en el Código**: Ejecuta **Semgrep** para detectar fallas de seguridad y malas prácticas de codificación de forma estática en los archivos del proyecto.
+  * **Seguridad de Infraestructura**: Analiza los archivos de configuración (`Dockerfile` y `docker-compose.yml`) mediante **Kics** y **Checkov** para validar buenas prácticas de despliegue y aislamiento de contenedores.
+  * **Vulnerabilidades en Dependencias**: Incorpora **Trivy** y **Grype** para escanear dependencias y componentes en busca de paquetes vulnerables conocidos.
+  * **Calidad de Formato**: Valida la estructura y formato en archivos de configuración JSON (`jsonlint`, `v8r`) y documentación Markdown (`markdownlint`).

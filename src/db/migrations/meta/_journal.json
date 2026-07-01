@@ -15,6 +15,34 @@
       "when": 1782781664641,
       "tag": "0001_plain_infant_terrible",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782878879323,
+      "tag": "0002_blushing_starbolt",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1782878942182,
+      "tag": "0003_open_thanos",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1782918811398,
+      "tag": "0004_smooth_rumiko_fujikawa",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1782921737679,
+      "tag": "0005_mixed_shooting_star",
+      "breakpoints": true
     }
   ]
 }

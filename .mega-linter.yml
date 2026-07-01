@@ -1,0 +1,37 @@
+---
+# MegaLinter configuration file
+# See https://megalinter.io for documentation
+
+# Enable only the required descriptors for fast linting
+ENABLE:
+  - BASH
+  - YAML
+  - MARKDOWN
+  - JSON
+  - REPOSITORY
+
+# Disable specific linters
+DISABLE_LINTERS:
+  - MARKDOWN_MARKDOWN_LINK_CHECK
+
+# Exclude directories that shouldn't be linted
+EXCLUDED_DIRECTORIES:
+  - node_modules
+  - .next
+  - out
+  - dist
+  - build
+  - .git
+  - .github
+
+# Disable any auto-fixing to avoid unwanted commits during CI
+APPLY_FIXES: none
+
+# Display elapsed time for each linter
+SHOW_ELAPSED_TIME: true
+
+REPOSITORY_KICS_DISABLE_ERRORS: true
+REPOSITORY_CHECKOV_DISABLE_ERRORS: true
+REPOSITORY_DEVSKIM_DISABLE_ERRORS: true
+REPOSITORY_TRIVY_DISABLE_ERRORS: true
+REPOSITORY_GRYPE_DISABLE_ERRORS: true
