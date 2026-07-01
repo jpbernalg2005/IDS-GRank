@@ -1,0 +1,24 @@
+name: MegaLinter
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  megalinter:
+    name: MegaLinter
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: MegaLinter
+        uses: oxsecurity/megalinter@v7
+        env:
+          # The captain wants to scan the entire codebase on the first run.
+          # Change to 'false' later to only analyze files modified in the PR.
+          VALIDATE_ALL_CODEBASE: true
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
