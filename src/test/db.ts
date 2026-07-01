@@ -47,6 +47,9 @@ export async function destroyTestDb(ctx: TestDbContext): Promise<void> {
 export async function resetDb(db: TestDb): Promise<void> {
   await db.execute(
     sql.raw(`TRUNCATE TABLE
+      user_rewards,
+      rewards,
+      notifications,
       challenge_participants,
       challenges,
       personal_records,

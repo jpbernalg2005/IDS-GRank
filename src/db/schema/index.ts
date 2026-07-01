@@ -6,3 +6,5 @@ export * from "./workout-plans";
 export * from "./friendships";
 export * from "./competition-groups";
 export * from "./challenges";
+export * from "./rewards";
+export * from "./notifications";
