@@ -8,3 +8,4 @@ export * from "./competition-groups";
 export * from "./challenges";
 export * from "./rewards";
 export * from "./notifications";
+export * from "./relations";

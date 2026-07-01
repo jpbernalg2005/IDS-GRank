@@ -1,7 +1,8 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
-import { friendships, users } from "@/db/schema";
+import { friendships, users, rewards } from "@/db/schema";
 import { eq, and, or } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -56,9 +57,20 @@ export async function GET(req: Request) {
   const search = searchParams.get("search");
 
   if (search === "users") {
+    const frameReward = alias(rewards, "frame_reward");
+    const titleReward = alias(rewards, "title_reward");
+
     const allUsers = await db
-      .select({ id: users.id, username: users.username, displayName: users.displayName })
-      .from(users);
+      .select({
+        id: users.id,
+        username: users.username,
+        displayName: users.displayName,
+        equippedFrameAsset: frameReward.assetValue,
+        equippedTitleAsset: titleReward.assetValue,
+      })
+      .from(users)
+      .leftJoin(frameReward, eq(users.equippedFrameRewardId, frameReward.id))
+      .leftJoin(titleReward, eq(users.equippedTitleRewardId, titleReward.id));
 
     const friendRows = await db
       .select({
@@ -80,17 +92,22 @@ export async function GET(req: Request) {
     return Response.json(available);
   }
 
+  const withEquipped = {
+    requester: { with: { equippedFrame: true, equippedTitle: true } },
+    addressee: { with: { equippedFrame: true, equippedTitle: true } },
+  } as const;
+
   const friendList = await db.query.friendships.findMany({
     where: or(
       and(eq(friendships.requesterId, userId), eq(friendships.status, "ACCEPTED")),
       and(eq(friendships.addresseeId, userId), eq(friendships.status, "ACCEPTED"))
     ),
-    with: { requester: true, addressee: true },
+    with: withEquipped,
   });
 
   const pendingRequests = await db.query.friendships.findMany({
     where: and(eq(friendships.addresseeId, userId), eq(friendships.status, "PENDING")),
-    with: { requester: true, addressee: true },
+    with: withEquipped,
   });
 
   return Response.json({ friends: friendList, pending: pendingRequests });

@@ -1,19 +1,35 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
-import { users } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { users, rewards, userRewards } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ProfileForm } from "./profile-form";
-import { Users, ClipboardList } from "lucide-react";
+import { Users, ClipboardList, Lock } from "lucide-react";
+import { AvatarWithFrame, TitleChip } from "@/components/equipped-cosmetics";
 
 export default async function ProfilePage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
   const userId = Number(session.user.id);
-  const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
+  const user = await db.query.users.findFirst({
+    where: eq(users.id, userId),
+    with: { equippedFrame: true, equippedTitle: true },
+  });
   if (!user) redirect("/login");
+
+  const allBadges = await db
+    .select()
+    .from(rewards)
+    .where(and(eq(rewards.type, "BADGE"), eq(rewards.isActive, true)));
+
+  const ownedBadgeRows = await db
+    .select({ rewardId: userRewards.rewardId })
+    .from(userRewards)
+    .innerJoin(rewards, eq(userRewards.rewardId, rewards.id))
+    .where(and(eq(userRewards.userId, userId), eq(rewards.type, "BADGE")));
+  const ownedBadgeIds = new Set(ownedBadgeRows.map((r) => r.rewardId));
 
   return (
     <div className="space-y-6">
@@ -24,15 +40,45 @@ export default async function ProfilePage() {
 
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
         <div className="flex items-center gap-4">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-2xl font-bold text-primary">
-            {user.username?.[0]?.toUpperCase()}
-          </div>
+          <AvatarWithFrame
+            label={user.username?.[0]?.toUpperCase() ?? ""}
+            frameAsset={user.equippedFrame?.assetValue}
+            size="md"
+          />
           <div>
             <h2 className="font-heading text-2xl tracking-wide">{user.username}</h2>
             <p className="text-sm text-muted-foreground">{user.email}</p>
+            {user.equippedTitle && <TitleChip title={user.equippedTitle.assetValue} className="mt-2" />}
           </div>
         </div>
       </div>
+
+      {allBadges.length > 0 && (
+        <div className="space-y-3 rounded-xl border border-border bg-card p-6 shadow-sm">
+          <h3 className="font-heading text-xl tracking-wide">Insignias</h3>
+          <div className="flex flex-wrap gap-3">
+            {allBadges.map((badge) => {
+              const owned = ownedBadgeIds.has(badge.id);
+              return (
+                <div
+                  key={badge.id}
+                  title={badge.name}
+                  className={`relative flex h-14 w-14 items-center justify-center rounded-xl border bg-gradient-to-br text-2xl ${
+                    owned
+                      ? "border-amber-500/30 from-amber-500/20 to-orange-500/20"
+                      : "border-border from-muted/40 to-muted/20 grayscale opacity-40"
+                  }`}
+                >
+                  {badge.assetValue}
+                  {!owned && (
+                    <Lock className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-background p-0.5 text-muted-foreground" />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <ProfileForm user={user} />
 
