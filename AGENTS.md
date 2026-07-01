@@ -55,3 +55,4 @@ Las 4 recompensas `BADGE` en `src/db/seed.ts` (costCoins 0) representan logros, 
 
 - La columna `personal_records.isVerified` es dead code (nunca sale de `PENDING`) — no la uses para gating, dejaría los logros inalcanzables.
 - `CONSECUTIVE_WINS_10` está deliberadamente sin implementar: la semántica de victorias/rachas de retos es una decisión de producto pendiente. El endpoint rechaza el canje de esa insignia con "Este logro aún no está disponible" hasta que se resuelva.
+- Los literales de `milestoneKey` (p. ej. `CONSECUTIVE_WINS_10`) disparan falsos positivos en la regla `generic-api-key` de Gitleaks (MegaLinter `REPOSITORY_GITLEAKS`), porque el nombre del campo contiene "key". Están permitidos vía allowlist en `.gitleaks.toml` (raíz del repo) — si agregas un nuevo valor al enum `milestoneKey`, añádelo también a esa allowlist.
