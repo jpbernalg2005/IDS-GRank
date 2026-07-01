@@ -13,7 +13,7 @@ ENABLE:
 # Disable specific linters
 DISABLE_LINTERS:
   - MARKDOWN_MARKDOWN_LINK_CHECK
-  - TYPESCRIPT_TS_STANDARD
+  - TYPESCRIPT_STANDARD
   - JAVASCRIPT_STANDARD
 
 # Exclude directories that shouldn't be linted
