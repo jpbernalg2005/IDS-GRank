@@ -9,6 +9,15 @@ const FRAME_RING_STYLES: Record<string, string> = {
 };
 const DEFAULT_FRAME_RING = "from-primary via-primary/60 to-primary/20";
 
+// Glow tinted to each frame's own gradient (keyed the same as FRAME_RING_STYLES),
+// so the neon look matches the ring color instead of one generic glow for all frames.
+const FRAME_GLOW_STYLES: Record<string, string> = {
+  "🔥": "shadow-[0_0_16px_2px_rgba(249,115,22,0.55)]",
+  "⚡": "shadow-[0_0_16px_2px_rgba(56,189,248,0.55)]",
+  "🌌": "shadow-[0_0_16px_2px_rgba(168,85,247,0.55)]",
+};
+const DEFAULT_FRAME_GLOW = "shadow-[0_0_16px_2px_hsl(var(--primary)/0.45)]";
+
 const AVATAR_SIZES = {
   sm: "h-10 w-10 text-sm",
   md: "h-16 w-16 text-2xl",
@@ -23,8 +32,11 @@ export function AvatarWithFrame({
   frameAsset?: string | null;
   size?: keyof typeof AVATAR_SIZES;
 }) {
+  // Opaque background when framed so the gradient wrapper only shows through the
+  // thin p-[2px] ring, instead of bleeding through a translucent circle.
+  const innerBg = frameAsset ? "bg-card" : "bg-primary/10";
   const circle = (
-    <div className={`flex ${AVATAR_SIZES[size]} items-center justify-center rounded-full bg-primary/10 font-bold text-primary`}>
+    <div className={`flex ${AVATAR_SIZES[size]} items-center justify-center rounded-full ${innerBg} font-bold text-primary`}>
       {label}
     </div>
   );
@@ -32,7 +44,8 @@ export function AvatarWithFrame({
   if (!frameAsset) return circle;
 
   const ring = FRAME_RING_STYLES[frameAsset] ?? DEFAULT_FRAME_RING;
-  return <div className={`inline-flex rounded-full bg-gradient-to-br p-[2px] ${ring}`}>{circle}</div>;
+  const glow = FRAME_GLOW_STYLES[frameAsset] ?? DEFAULT_FRAME_GLOW;
+  return <div className={`inline-flex rounded-full bg-gradient-to-br p-[2px] ${ring} ${glow}`}>{circle}</div>;
 }
 
 export function TitleChip({ title, className = "" }: { title?: string | null; className?: string }) {
