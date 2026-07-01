@@ -18,5 +18,11 @@ export default async function RewardsPage() {
   const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
   if (!user) redirect("/login");
 
-  return <RewardsCatalog initialCoins={user.coins} />;
+  return (
+    <RewardsCatalog
+      initialCoins={user.coins}
+      initialEquippedFrameId={user.equippedFrameRewardId}
+      initialEquippedTitleId={user.equippedTitleRewardId}
+    />
+  );
 }

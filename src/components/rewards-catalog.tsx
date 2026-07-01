@@ -146,9 +146,19 @@ function RewardCard({ reward, owned, coins, onRedeem, redeeming }: RewardCardPro
   );
 }
 
-function OwnedRewardCard({ reward }: { reward: OwnedReward }) {
+const EQUIPPABLE_TYPES: RewardType[] = ["AVATAR_FRAME", "TITLE"];
+
+interface OwnedRewardCardProps {
+  reward: OwnedReward;
+  equipped: boolean;
+  onToggleEquip: (rewardId: number, type: RewardType, equip: boolean) => Promise<void>;
+  toggling: boolean;
+}
+
+function OwnedRewardCard({ reward, equipped, onToggleEquip, toggling }: OwnedRewardCardProps) {
   const type = reward.type as RewardType;
   const gradientClass = TYPE_COLORS[type] ?? "from-gray-500/20 to-gray-500/20 border-gray-500/30";
+  const canEquip = EQUIPPABLE_TYPES.includes(type);
 
   return (
     <div className={`flex items-center gap-3 rounded-xl border bg-gradient-to-br p-3 ${gradientClass}`}>
@@ -165,19 +175,44 @@ function OwnedRewardCard({ reward }: { reward: OwnedReward }) {
           {new Date(reward.redeemedAt).toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric" })}
         </p>
       </div>
-      <TypeIcon type={type} className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+      {canEquip ? (
+        <button
+          onClick={() => onToggleEquip(reward.rewardId, type, !equipped)}
+          disabled={toggling}
+          className={`flex-shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${
+            equipped
+              ? "border border-green-500/30 bg-green-500/20 text-green-400 hover:bg-green-500/30"
+              : "bg-primary text-primary-foreground hover:bg-primary/90"
+          } ${toggling ? "opacity-60" : "active:scale-95"}`}
+        >
+          {toggling ? <Loader2 className="h-3 w-3 animate-spin" /> : equipped ? "Equipado" : "Equipar"}
+        </button>
+      ) : (
+        <TypeIcon type={type} className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+      )}
     </div>
   );
 }
 
-export function RewardsCatalog({ initialCoins }: { initialCoins: number }) {
+export function RewardsCatalog({
+  initialCoins,
+  initialEquippedFrameId = null,
+  initialEquippedTitleId = null,
+}: {
+  initialCoins: number;
+  initialEquippedFrameId?: number | null;
+  initialEquippedTitleId?: number | null;
+}) {
   const [activeTab, setActiveTab] = useState<"catalog" | "mine">("catalog");
   const [coins, setCoins] = useState(initialCoins);
   const [catalogRewards, setCatalogRewards] = useState<Reward[]>([]);
   const [ownedIds, setOwnedIds] = useState<number[]>([]);
   const [myRewards, setMyRewards] = useState<OwnedReward[]>([]);
+  const [equippedFrameId, setEquippedFrameId] = useState<number | null>(initialEquippedFrameId);
+  const [equippedTitleId, setEquippedTitleId] = useState<number | null>(initialEquippedTitleId);
   const [loading, setLoading] = useState(true);
   const [redeemingId, setRedeemingId] = useState<number | null>(null);
+  const [togglingId, setTogglingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
@@ -240,6 +275,33 @@ export function RewardsCatalog({ initialCoins }: { initialCoins: number }) {
       setError("Error de conexión. Inténtalo de nuevo.");
     } finally {
       setRedeemingId(null);
+    }
+  };
+
+  const handleToggleEquip = async (rewardId: number, type: RewardType, equip: boolean) => {
+    setError(null);
+    setTogglingId(rewardId);
+
+    try {
+      const res = await fetch("/api/rewards/equip", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ rewardId, action: equip ? "equip" : "unequip" }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error ?? "Error al equipar la recompensa");
+      } else if (type === "AVATAR_FRAME") {
+        setEquippedFrameId(equip ? rewardId : null);
+      } else if (type === "TITLE") {
+        setEquippedTitleId(equip ? rewardId : null);
+      }
+    } catch {
+      setError("Error de conexión. Inténtalo de nuevo.");
+    } finally {
+      setTogglingId(null);
     }
   };
 
@@ -353,9 +415,24 @@ export function RewardsCatalog({ initialCoins }: { initialCoins: number }) {
             </div>
           ) : (
             <div className="space-y-2">
-              {myRewards.map((reward) => (
-                <OwnedRewardCard key={reward.id} reward={reward} />
-              ))}
+              {myRewards.map((reward) => {
+                const type = reward.type as RewardType;
+                const equipped =
+                  type === "AVATAR_FRAME"
+                    ? equippedFrameId === reward.rewardId
+                    : type === "TITLE"
+                    ? equippedTitleId === reward.rewardId
+                    : false;
+                return (
+                  <OwnedRewardCard
+                    key={reward.id}
+                    reward={reward}
+                    equipped={equipped}
+                    onToggleEquip={handleToggleEquip}
+                    toggling={togglingId === reward.rewardId}
+                  />
+                );
+              })}
             </div>
           )}
         </div>

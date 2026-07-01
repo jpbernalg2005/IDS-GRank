@@ -3,16 +3,21 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { UserPlus, Users, Check, X, Search, Swords } from "lucide-react";
+import { AvatarWithFrame, TitleChip } from "@/components/equipped-cosmetics";
 
 interface FriendUser {
   id: number;
   username: string;
+  equippedFrame?: { assetValue: string } | null;
+  equippedTitle?: { assetValue: string } | null;
 }
 
 interface AvailableUser {
   id: number;
   username: string;
   displayName: string | null;
+  equippedFrameAsset?: string | null;
+  equippedTitleAsset?: string | null;
 }
 
 interface Friendship {
@@ -84,10 +89,12 @@ export default function FriendsPage() {
     loadFriends();
   };
 
-  const getFriendName = (f: Friendship) => {
-    if (!userId) return "";
-    return f.requesterId === userId ? f.addressee.username : f.requester.username;
+  const getFriend = (f: Friendship): FriendUser | null => {
+    if (!userId) return null;
+    return f.requesterId === userId ? f.addressee : f.requester;
   };
+
+  const getFriendName = (f: Friendship) => getFriend(f)?.username ?? "";
 
   return (
     <div className="space-y-6">
@@ -124,11 +131,15 @@ export default function FriendsPage() {
           {pending.map((f) => (
             <div key={f.id} className="flex items-center justify-between rounded-xl border border-border bg-card p-4 shadow-sm">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
-                  {f.requester.username[0].toUpperCase()}
-                </div>
+                <AvatarWithFrame
+                  label={f.requester.username[0].toUpperCase()}
+                  frameAsset={f.requester.equippedFrame?.assetValue}
+                />
                 <div>
-                  <p className="font-semibold">{f.requester.username}</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="font-semibold">{f.requester.username}</p>
+                    {f.requester.equippedTitle && <TitleChip title={f.requester.equippedTitle.assetValue} />}
+                  </div>
                   <p className="text-xs text-muted-foreground">Quiere ser tu amigo</p>
                 </div>
               </div>
@@ -151,11 +162,12 @@ export default function FriendsPage() {
           {availableUsers.map((u) => (
             <div key={u.id} className="flex items-center justify-between rounded-xl border border-border bg-card p-4 shadow-sm">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
-                  {u.username[0].toUpperCase()}
-                </div>
+                <AvatarWithFrame label={u.username[0].toUpperCase()} frameAsset={u.equippedFrameAsset} />
                 <div>
-                  <p className="font-semibold">{u.displayName || u.username}</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="font-semibold">{u.displayName || u.username}</p>
+                    {u.equippedTitleAsset && <TitleChip title={u.equippedTitleAsset} />}
+                  </div>
                   <p className="text-xs text-muted-foreground">@{u.username}</p>
                 </div>
               </div>
@@ -177,11 +189,15 @@ export default function FriendsPage() {
           friends.map((f) => (
             <div key={f.id} className="flex items-center justify-between rounded-xl border border-border bg-card p-4 shadow-sm">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
-                  {getFriendName(f)[0]?.toUpperCase()}
-                </div>
+                <AvatarWithFrame
+                  label={getFriendName(f)[0]?.toUpperCase() ?? ""}
+                  frameAsset={getFriend(f)?.equippedFrame?.assetValue}
+                />
                 <div>
-                  <p className="font-semibold">{getFriendName(f)}</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="font-semibold">{getFriendName(f)}</p>
+                    {getFriend(f)?.equippedTitle && <TitleChip title={getFriend(f)!.equippedTitle!.assetValue} />}
+                  </div>
                   <p className="text-xs text-muted-foreground">Amigo</p>
                 </div>
               </div>

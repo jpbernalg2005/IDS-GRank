@@ -1,0 +1,4 @@
+ALTER TABLE "users" ADD COLUMN "equipped_frame_reward_id" integer;--> statement-breakpoint
+ALTER TABLE "users" ADD COLUMN "equipped_title_reward_id" integer;--> statement-breakpoint
+ALTER TABLE "users" ADD CONSTRAINT "users_equipped_frame_reward_id_rewards_id_fk" FOREIGN KEY ("equipped_frame_reward_id") REFERENCES "public"."rewards"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "users" ADD CONSTRAINT "users_equipped_title_reward_id_rewards_id_fk" FOREIGN KEY ("equipped_title_reward_id") REFERENCES "public"."rewards"("id") ON DELETE no action ON UPDATE no action;
