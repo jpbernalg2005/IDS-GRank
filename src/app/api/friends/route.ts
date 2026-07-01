@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { friendships, users, rewards } from "@/db/schema";
 import { eq, and, or } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
+import { createNotification } from "@/lib/notifications";
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -24,7 +25,16 @@ export async function POST(req: Request) {
 
   if (existing) return Response.json({ error: "Ya existe una solicitud" }, { status: 400 });
 
-  await db.insert(friendships).values({ requesterId: userId, addresseeId: target.id });
+  await db.transaction(async (tx) => {
+    await tx.insert(friendships).values({ requesterId: userId, addresseeId: target.id });
+    await createNotification(tx, {
+      userId: target.id,
+      type: "FRIEND_REQUEST",
+      title: "Nueva solicitud de amistad",
+      body: `${session.user.name ?? "Alguien"} quiere ser tu amigo`,
+      linkUrl: "/friends",
+    });
+  });
   return Response.json({ success: true }, { status: 201 });
 }
 
@@ -40,7 +50,16 @@ export async function PUT(req: Request) {
   if (friendship.addresseeId !== userId) return Response.json({ error: "No autorizado" }, { status: 403 });
 
   if (action === "accept") {
-    await db.update(friendships).set({ status: "ACCEPTED", updatedAt: new Date() }).where(eq(friendships.id, friendshipId));
+    await db.transaction(async (tx) => {
+      await tx.update(friendships).set({ status: "ACCEPTED", updatedAt: new Date() }).where(eq(friendships.id, friendshipId));
+      await createNotification(tx, {
+        userId: friendship.requesterId,
+        type: "FRIEND_ACCEPTED",
+        title: "Tu solicitud fue aceptada",
+        body: `${session.user.name ?? "Alguien"} aceptó tu solicitud de amistad`,
+        linkUrl: "/friends",
+      });
+    });
   } else {
     await db.delete(friendships).where(eq(friendships.id, friendshipId));
   }

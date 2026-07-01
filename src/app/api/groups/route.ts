@@ -1,8 +1,9 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
-import { competitionGroups, groupMembers } from "@/db/schema";
+import { competitionGroups, groupMembers, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { generateRandomCode } from "@/lib/utils";
+import { createNotification } from "@/lib/notifications";
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -41,7 +42,26 @@ export async function PUT(req: Request) {
 
   if (existingMember) return Response.json({ error: "Ya eres miembro de este grupo" }, { status: 400 });
 
-  await db.insert(groupMembers).values({ groupId: group.id, userId, role: "MEMBER" });
+  // Find the current user's info for the notification body
+  const joiningUser = await db.query.users.findFirst({ where: eq(users.id, userId) });
+
+  // Find the group admin to notify
+  const adminMember = await db.query.groupMembers.findFirst({
+    where: (gm, { and }) => and(eq(gm.groupId, group.id), eq(gm.role, "ADMIN")),
+  });
+
+  await db.transaction(async (tx) => {
+    await tx.insert(groupMembers).values({ groupId: group.id, userId, role: "MEMBER" });
+    if (adminMember && adminMember.userId !== userId) {
+      await createNotification(tx, {
+        userId: adminMember.userId,
+        type: "GROUP_JOIN",
+        title: `${joiningUser?.username ?? "Alguien"} se unió a ${group.name}`,
+        body: "Un nuevo miembro se unió usando el código de invitación",
+        linkUrl: `/groups/${group.id}`,
+      });
+    }
+  });
 
   return Response.json(group, { status: 200 });
 }
